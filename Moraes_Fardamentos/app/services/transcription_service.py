@@ -1,0 +1,2 @@
+class TranscriptionService:
+    pass

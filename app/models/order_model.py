@@ -1,0 +1,35 @@
+from dataclasses import dataclass, field
+from typing import Optional
+
+
+@dataclass
+class OrderItemModel:
+    id: Optional[int] = None
+    order_id: Optional[int] = None
+    size: Optional[str] = None
+    gender: Optional[str] = None
+    quantity: Optional[int] = None
+
+
+@dataclass
+class OrderModel:
+    id: Optional[int] = None
+    client_id: Optional[int] = None
+    client_name: Optional[str] = None
+    client_phone: Optional[str] = None
+    client_city: Optional[str] = None
+    model: Optional[str] = None
+    fabric: Optional[str] = None
+    type: Optional[str] = None
+    quantity: Optional[int] = None
+    deadline: Optional[str] = None
+    priority: Optional[str] = None
+    total_value: Optional[float] = None
+    paid: int = 0
+    stock_reserved: int = 0
+    stock_withdrawn: int = 0
+    notes: Optional[str] = None
+    current_stage: str = "Recepção"
+    created_at: Optional[str] = None
+    items: list[OrderItemModel] = field(default_factory=list)
+    audio_id: Optional[int] = None

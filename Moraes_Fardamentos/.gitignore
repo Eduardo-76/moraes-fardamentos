@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+build/
+dist/
+*.spec
+storage/temp/
+data/backups/
