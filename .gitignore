@@ -15,6 +15,7 @@ dist/
 
 storage/temp/
 storage/recordings/
+storage/audios/
 
 data/backups/
 data/app.db
