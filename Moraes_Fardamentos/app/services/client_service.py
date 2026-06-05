@@ -1,2 +1,0 @@
-class ClientService:
-    pass

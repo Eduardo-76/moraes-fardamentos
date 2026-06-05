@@ -1,2 +1,0 @@
-class FileService:
-    pass
