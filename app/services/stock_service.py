@@ -189,9 +189,27 @@ class StockService:
 
     def find_stock_item(
         self,
+        stock_entry_id: int,
         size: str,
         gender: str
     ):
+
+        stock = self.get_stock_entry_by_id(
+            stock_entry_id
+        )
+
+        if not stock:
+            return None, None
+
+        for item in stock.items:
+
+            if (
+                item.size == size
+                and item.gender == gender
+            ):
+                return stock, item
+
+        return None, None
 
         for stock in self.list_stock_entries():
 
@@ -272,6 +290,7 @@ class StockService:
     
     def reserve_order_stock(
         self,
+        stock_entry_id,
         order_items
     ):
 
@@ -280,6 +299,7 @@ class StockService:
         for order_item in order_items:
 
             stock, stock_item = self.find_stock_item(
+                stock_entry_id,
                 order_item.size,
                 order_item.gender
             )

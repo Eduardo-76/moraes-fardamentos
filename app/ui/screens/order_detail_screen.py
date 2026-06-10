@@ -5,6 +5,8 @@ from app.services.order_service import OrderService
 from app.ui.dialogs.order_form_dialog import OrderFormDialog
 from app.ui.dialogs.order_stock_withdraw_dialog import OrderStockWithdrawDialog
 from app.services.stock_service import StockService
+from app.ui.dialogs.select_stock_dialog import SelectStockDialog
+
 
 
 class OrderDetailScreen(ctk.CTkFrame):
@@ -116,6 +118,19 @@ class OrderDetailScreen(ctk.CTkFrame):
             command=self._simulate_stock_reservation,
         )
 
+        reserve_button = ctk.CTkButton(
+            summary_buttons,
+            text="Reservar estoque",
+            command=self._reserve_stock,
+        )
+
+        reserve_button.grid(
+            row=0,
+            column=4,
+            padx=(0, 8),
+            pady=0
+        )
+
         simulate_button.grid(
             row=0,
             column=3,
@@ -136,7 +151,7 @@ class OrderDetailScreen(ctk.CTkFrame):
                     text="Ouvir áudio",
                     command=lambda p=audio.file_path: audio_service.open_audio(p),
                 )
-                play_button.grid(row=0, column=4, padx=0, pady=0)
+                play_button.grid(row=0, column=5, padx=0, pady=0)
 
         actions_frame = ctk.CTkFrame(self.content_frame)
         actions_frame.grid(row=1, column=0, sticky="ew", padx=8, pady=8)
@@ -352,3 +367,62 @@ class OrderDetailScreen(ctk.CTkFrame):
             "1.0",
             text or "Nenhum item encontrado."
         )
+
+    def _reserve_stock(self):
+
+        dialog = SelectStockDialog(self)
+
+        self.wait_window(dialog)
+
+        if not dialog.result:
+            return
+
+        stock_id = dialog.result
+
+        try:
+
+            result = self.order_service.reserve_order_stock(
+                self.order_id,
+                stock_id
+            )
+
+            text = "RESERVA REALIZADA\n\n"
+
+            for item in result:
+
+                text += (
+                    f"{item['size']} "
+                    f"{item['gender']}\n"
+                    f"Reservado: {item['reserved']}\n"
+                    f"Faltam: {item['missing']}\n\n"
+                )
+
+        except Exception as e:
+
+            text = str(e)
+
+        dialog = ctk.CTkToplevel(self)
+
+        dialog.title(
+            "Reserva de Estoque"
+        )
+
+        dialog.geometry(
+            "500x400"
+        )
+
+        textbox = ctk.CTkTextbox(dialog)
+
+        textbox.pack(
+            fill="both",
+            expand=True,
+            padx=20,
+            pady=20
+        )
+
+        textbox.insert(
+            "1.0",
+            text
+        )
+
+        self._render_content()

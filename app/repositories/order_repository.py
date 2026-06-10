@@ -23,10 +23,11 @@ class OrderRepository:
                     priority,
                     total_value,
                     paid,
+                    stock_reserved,
                     notes,
                     current_stage
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     order.client_id,
@@ -39,6 +40,7 @@ class OrderRepository:
                     order.priority,
                     order.total_value,
                     order.paid,
+                    order.stock_reserved,
                     order.notes,
                     order.current_stage,
                 ),
@@ -117,6 +119,7 @@ class OrderRepository:
                     priority = ?,
                     total_value = ?,
                     paid = ?,
+                    stock_reserved = ?,
                     notes = ?
                 WHERE id = ?
                 """,
@@ -131,6 +134,7 @@ class OrderRepository:
                     order.priority,
                     order.total_value,
                     order.paid,
+                    order.stock_reserved,
                     order.notes,
                     order.id,
                 ),
@@ -181,6 +185,7 @@ class OrderRepository:
                     o.priority,
                     o.total_value,
                     o.paid,
+                    o.stock_reserved,
                     o.stock_withdrawn,
                     o.notes,
                     o.current_stage,
@@ -201,6 +206,7 @@ class OrderRepository:
                     model=row["model"],
                     fabric=row["fabric"],
                     type=row["type"],
+                    stock_reserved=row["stock_reserved"],
                     stock_withdrawn=row["stock_withdrawn"],
                     quantity=row["quantity"],
                     deadline=row["deadline"],
@@ -232,6 +238,7 @@ class OrderRepository:
                     o.model,
                     o.fabric,
                     o.type,
+                    o.stock_reserved,
                     o.stock_withdrawn,
                     o.quantity,
                     o.deadline,
@@ -263,6 +270,7 @@ class OrderRepository:
                 client_phone=row["client_phone"],
                 client_city=row["client_city"],
                 model=row["model"],
+                stock_reserved=row["stock_reserved"],
                 stock_withdrawn=row["stock_withdrawn"],
                 fabric=row["fabric"],
                 type=row["type"],
@@ -459,5 +467,28 @@ class OrderRepository:
                 (notes, order_id, stage_name),
             )
             connection.commit()
+        finally:
+            connection.close()
+
+    def mark_stock_reserved(
+        self,
+        order_id: int
+    ):
+        connection = get_connection()
+
+        try:
+            cursor = connection.cursor()
+
+            cursor.execute(
+                """
+                UPDATE orders
+                SET stock_reserved = 1
+                WHERE id = ?
+                """,
+                (order_id,)
+            )
+
+            connection.commit()
+
         finally:
             connection.close()

@@ -3,11 +3,14 @@ from datetime import datetime, timedelta
 from app.core.constants import ORDER_STAGES
 from app.models.order_model import OrderItemModel, OrderModel
 from app.repositories.order_repository import OrderRepository
+from app.services.stock_service import StockService
+
 
 
 class OrderService:
     def __init__(self) -> None:
         self.repository = OrderRepository()
+        self.stock_service = StockService()
 
     def create_order(
         self,
@@ -321,6 +324,7 @@ class OrderService:
             )
 
         order = OrderModel(
+            id=order_id,
             client_id=client_id,
             audio_id=audio_id if isinstance(audio_id, int) and audio_id > 0 else None,
             client_name=client_name,
@@ -339,3 +343,27 @@ class OrderService:
         )
 
         self.repository.update_order(order)
+
+    def reserve_order_stock(
+        self,
+        order_id: int,
+        stock_id: int
+    ):
+        order = self.get_order_by_id(order_id)
+
+        if not order:
+            raise Exception("Pedido não encontrado")
+
+        if order.stock_reserved:
+            raise Exception("Este pedido já possui estoque reservado")
+
+        result = self.stock_service.reserve_order_stock(
+            stock_id,
+            order.items
+        )
+
+        self.repository.mark_stock_reserved(
+            order_id
+        )
+
+        return result
