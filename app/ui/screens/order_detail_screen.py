@@ -2,11 +2,23 @@ import customtkinter as ctk
 from app.services.audio_service import AudioService
 from app.core.constants import MESSAGE_SECTORS, STAGE_STATUS_COLORS
 from app.services.order_service import OrderService
+from app.ui.components.message_generator import MessageGenerator
 from app.ui.dialogs.order_form_dialog import OrderFormDialog
 from app.ui.dialogs.order_stock_withdraw_dialog import OrderStockWithdrawDialog
 from app.services.stock_service import StockService
 from app.ui.dialogs.select_stock_dialog import SelectStockDialog
-
+from app.ui.dialogs.change_order_status_dialog import (
+    ChangeOrderStatusDialog
+)
+from app.ui.dialogs.change_order_status_dialog import (
+    ChangeOrderStatusDialog
+)
+from app.ui.components.order_summary import OrderSummary
+from app.ui.components.order_command import OrderCommand
+from tkinter import messagebox
+from app.ui.components.production_flow import ProductionFlow
+from app.ui.components.order_actions import OrderActions
+from app.printing.command_printer import CommandPrinter
 
 
 class OrderDetailScreen(ctk.CTkFrame):
@@ -17,13 +29,14 @@ class OrderDetailScreen(ctk.CTkFrame):
         self.on_back = on_back
         self.order_service = OrderService()
         self.stock_service = StockService()
-        self.stage_note_entries = {}
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
         self._build_header()
         self._build_content()
+
+        self.command_printer = CommandPrinter()
 
     def _build_header(self) -> None:
         header_frame = ctk.CTkFrame(self)
@@ -49,17 +62,20 @@ class OrderDetailScreen(ctk.CTkFrame):
         self.content_frame = ctk.CTkScrollableFrame(self)
         self.content_frame.grid(row=1, column=0, sticky="nsew", padx=8, pady=8)
         self.content_frame.grid_columnconfigure(0, weight=1)
+        self.content_frame.grid_columnconfigure(1, weight=1)
 
         self._render_content()
 
     def _render_content(self) -> None:
-        self.stage_note_entries = {}
 
         for widget in self.content_frame.winfo_children():
             widget.destroy()
 
-        order = self.order_service.get_order_by_id(self.order_id)
-        stages = self.order_service.list_order_stages(self.order_id)
+        self.order = self.order_service.get_order_by_id(
+            self.order_id
+        )
+
+        order = self.order
 
         if not order:
             label = ctk.CTkLabel(
@@ -69,7 +85,8 @@ class OrderDetailScreen(ctk.CTkFrame):
             )
             label.grid(row=0, column=0, padx=16, pady=16, sticky="w")
             return
-
+        
+        
         summary_frame = ctk.CTkFrame(self.content_frame)
         summary_frame.grid(row=0, column=0, sticky="ew", padx=8, pady=8)
         summary_frame.grid_columnconfigure(0, weight=1)
@@ -90,181 +107,125 @@ class OrderDetailScreen(ctk.CTkFrame):
 
         summary_buttons = ctk.CTkFrame(summary_frame, fg_color="transparent")
         summary_buttons.grid(row=2, column=0, sticky="w", padx=16, pady=(0, 16))
-
+      
         copy_command_button = ctk.CTkButton(
             summary_buttons,
             text="Copiar comanda",
             command=lambda: self._copy_text(command_text),
         )
         copy_command_button.grid(row=0, column=0, padx=(0, 8), pady=0)
+        
 
-        edit_button = ctk.CTkButton(
-            summary_buttons,
-            text="Editar pedido",
-            command=self._open_edit_dialog,
-        )
-        edit_button.grid(row=0, column=1, padx=(0, 8), pady=0)
-
-        withdraw_button = ctk.CTkButton(
-            summary_buttons,
-            text="Estoque já baixado" if order.stock_withdrawn else "Baixar do estoque",
-            command=self._open_stock_withdraw_dialog,
-        )
-        withdraw_button.grid(row=0, column=2, padx=(0, 8), pady=0)
-
-        simulate_button = ctk.CTkButton(
-            summary_buttons,
-            text="Simular reserva",
-            command=self._simulate_stock_reservation,
+        summary = OrderSummary(
+            self.content_frame,
+            order=self.order
         )
 
-        reserve_button = ctk.CTkButton(
-            summary_buttons,
-            text="Reservar estoque",
-            command=self._reserve_stock,
-        )
-
-        reserve_button.grid(
+        summary.grid(
             row=0,
-            column=4,
-            padx=(0, 8),
-            pady=0
+            column=0,
+            sticky="nsew",
+            padx=(8, 4),
+            pady=8
         )
 
-        simulate_button.grid(
+        command = OrderCommand(
+            self.content_frame,
+            command_text=command_text,
+            callbacks={
+                "copy_command": lambda: self._copy_text(command_text)
+            }
+        )
+
+        command.grid(
             row=0,
-            column=3,
-            padx=(0, 8),
-            pady=0
+            column=1,
+            sticky="nsew",
+            padx=(4, 8),
+            pady=8
         )
 
-        if order.stock_withdrawn:
-            withdraw_button.configure(state="disabled")
+        audio_callback = None
 
-        if order.audio_id:
+        if self.order.audio_id:
+
             audio_service = AudioService()
-            audio = audio_service.get_audio_by_id(order.audio_id)
+            audio = audio_service.get_audio_by_id(self.order.audio_id)
 
             if audio:
-                play_button = ctk.CTkButton(
-                    summary_buttons,
-                    text="Ouvir áudio",
-                    command=lambda p=audio.file_path: audio_service.open_audio(p),
+                audio_callback = (
+                    lambda p=audio.file_path:
+                    audio_service.open_audio(p)
                 )
-                play_button.grid(row=0, column=5, padx=0, pady=0)
 
-        actions_frame = ctk.CTkFrame(self.content_frame)
-        actions_frame.grid(row=1, column=0, sticky="ew", padx=8, pady=8)
 
-        prev_button = ctk.CTkButton(
-            actions_frame,
-            text="Voltar etapa",
-            command=self._move_previous,
+        actions = OrderActions(
+            self.content_frame,
+            order=self.order,
+            callbacks={
+                "edit": self._open_edit_dialog,
+                "status": self._change_status,
+
+                "previous_stage": self._move_previous,
+                "next_stage": self._move_next,
+
+                "simulate": self._simulate_stock_reservation,
+                "reserve": self._reserve_stock,
+                "cancel_reservation": self._cancel_reservation,
+                "withdraw": self._open_stock_withdraw_dialog,
+                "audio": audio_callback,
+
+                "preview_command": self._preview_command,
+                "export_command_pdf": self._export_command_pdf,
+            }
         )
-        prev_button.grid(row=0, column=0, padx=16, pady=16, sticky="w")
 
-        next_button = ctk.CTkButton(
-            actions_frame,
-            text="Avançar etapa",
-            command=self._move_next,
+        actions.grid(
+            row=1,
+            column=0,
+            columnspan=2,
+            sticky="ew",
+            padx=8,
+            pady=(0, 8)
         )
-        next_button.grid(row=0, column=1, padx=16, pady=16, sticky="w")
 
-        message_frame = ctk.CTkFrame(self.content_frame)
-        message_frame.grid(row=2, column=0, sticky="ew", padx=8, pady=8)
-        message_frame.grid_columnconfigure(1, weight=1)
-
-        message_title = ctk.CTkLabel(
-            message_frame,
-            text="Gerar mensagem pronta",
-            font=ctk.CTkFont(size=20, weight="bold"),
+        flow = ProductionFlow(
+            self.content_frame,
+            self.order
         )
-        message_title.grid(row=0, column=0, columnspan=2, sticky="w", padx=16, pady=(16, 8))
 
-        self.sector_option = ctk.CTkOptionMenu(
-            message_frame,
-            values=MESSAGE_SECTORS,
+        flow.grid(
+            row=2,
+            column=0,
+            columnspan=2,
+            sticky="ew",
+            padx=8,
+            pady=(0, 8)
         )
-        self.sector_option.grid(row=1, column=0, padx=16, pady=8, sticky="w")
 
-        generate_button = ctk.CTkButton(
-            message_frame,
-            text="Gerar mensagem",
-            command=self._generate_message,
+
+        message_component = MessageGenerator(
+            self.content_frame,
+            order_service=self.order_service,
+            order_id=self.order_id,
+            copy_callback=self._copy_text
         )
-        generate_button.grid(row=1, column=1, padx=16, pady=8, sticky="w")
 
-        self.message_box = ctk.CTkTextbox(message_frame, height=150)
-        self.message_box.grid(row=2, column=0, columnspan=2, sticky="ew", padx=16, pady=8)
-
-        copy_message_button = ctk.CTkButton(
-            message_frame,
-            text="Copiar mensagem",
-            command=lambda: self._copy_text(self.message_box.get("1.0", "end").strip()),
+        message_component.grid(
+            row=3,
+            column=0,
+            columnspan=2,
+            sticky="ew",
+            padx=8,
+            pady=8
         )
-        copy_message_button.grid(row=3, column=0, padx=16, pady=(0, 16), sticky="w")
 
-        timeline_frame = ctk.CTkFrame(self.content_frame)
-        timeline_frame.grid(row=3, column=0, sticky="ew", padx=8, pady=8)
-        timeline_frame.grid_columnconfigure(0, weight=1)
+    def _build_production_flow(self):
+        pass
 
-        timeline_title = ctk.CTkLabel(
-            timeline_frame,
-            text="Linha do tempo do pedido",
-            font=ctk.CTkFont(size=22, weight="bold"),
-        )
-        timeline_title.grid(row=0, column=0, sticky="w", padx=16, pady=(16, 8))
 
-        for index, stage in enumerate(stages, start=1):
-            self._create_stage_row(timeline_frame, index, stage)
-
-    def _create_stage_row(self, master, row_index: int, stage: dict) -> None:
-        row_frame = ctk.CTkFrame(master)
-        row_frame.grid(row=row_index, column=0, sticky="ew", padx=16, pady=8)
-        row_frame.grid_columnconfigure(0, weight=1)
-
-        stage_name = stage.get("stage_name", "Etapa")
-        status = stage.get("status", "Em espera")
-        color = STAGE_STATUS_COLORS.get(status, "#3B82F6")
-
-        name_label = ctk.CTkLabel(
-            row_frame,
-            text=stage_name,
-            font=ctk.CTkFont(size=18, weight="bold"),
-        )
-        name_label.grid(row=0, column=0, sticky="w", padx=16, pady=(12, 4))
-
-        status_label = ctk.CTkLabel(
-            row_frame,
-            text=status,
-            fg_color=color,
-            corner_radius=8,
-            padx=10,
-            pady=6,
-        )
-        status_label.grid(row=0, column=1, sticky="e", padx=16, pady=(12, 4))
-
-        notes_entry = ctk.CTkTextbox(row_frame, height=80)
-        notes_entry.grid(row=1, column=0, columnspan=2, sticky="ew", padx=16, pady=8)
-        notes_entry.insert("1.0", stage.get("notes") or "")
-
-        save_button = ctk.CTkButton(
-            row_frame,
-            text="Salvar observação",
-            command=lambda s=stage_name: self._save_stage_note(s),
-        )
-        save_button.grid(row=2, column=0, padx=16, pady=(0, 12), sticky="w")
-
-        self.stage_note_entries[stage_name] = notes_entry
-
-    def _save_stage_note(self, stage_name: str) -> None:
-        entry = self.stage_note_entries.get(stage_name)
-        if not entry:
-            return
-
-        notes = entry.get("1.0", "end").strip()
-        self.order_service.save_stage_notes(self.order_id, stage_name, notes)
-        self._render_content()
+    def _create_stage_indicator(self):
+        pass
 
     def _move_next(self) -> None:
         self.order_service.move_to_next_stage(self.order_id)
@@ -273,21 +234,6 @@ class OrderDetailScreen(ctk.CTkFrame):
     def _move_previous(self) -> None:
         self.order_service.move_to_previous_stage(self.order_id)
         self._render_content()
-
-    def _generate_message(self) -> None:
-        sector = self.sector_option.get()
-        message = self.order_service.generate_stage_message(self.order_id, sector)
-
-        self.message_box.delete("1.0", "end")
-        self.message_box.insert("1.0", message)
-
-    def _copy_text(self, text: str) -> None:
-        if not text:
-            return
-
-        self.clipboard_clear()
-        self.clipboard_append(text)
-        self.update()
 
     def _open_edit_dialog(self) -> None:
         OrderFormDialog(
@@ -326,7 +272,7 @@ class OrderDetailScreen(ctk.CTkFrame):
         result = (
             self.stock_service
             .simulate_order_reservation(
-                order.items
+                order
             )
         )
 
@@ -426,3 +372,83 @@ class OrderDetailScreen(ctk.CTkFrame):
         )
 
         self._render_content()
+
+    def _cancel_reservation(self):
+
+        reservations = (
+            self.stock_service
+            .list_active_by_order(self.order_id)
+        )
+
+        if not reservations:
+            messagebox.showinfo(
+                "Reserva",
+                "Este pedido não possui reservas ativas."
+            )
+            return
+
+        try:
+
+            for reservation in reservations:
+
+                self.stock_service.cancel_reservation(
+                    reservation["id"]
+                )
+
+            messagebox.showinfo(
+                "Reserva",
+                "Reserva cancelada com sucesso."
+            )
+
+            self._render_content()
+
+        except Exception as e:
+
+            messagebox.showerror(
+                "Erro",
+                str(e)
+            )
+
+
+    def _change_status(self):
+
+        dialog = ChangeOrderStatusDialog(
+            self,
+            order=self.order,
+            on_save=self._reload_order
+        )
+
+        self.wait_window(dialog)
+
+    def _reload_order(self):
+
+        self.order = self.order_service.get_order_by_id(
+            self.order_id
+        )
+
+        self._render_content()
+
+    def _copy_text(
+        self,
+        text: str
+    ):
+        self.clipboard_clear()
+        self.clipboard_append(text)
+
+        messagebox.showinfo(
+            "Sucesso",
+            "Texto copiado."
+        )
+
+    def _preview_command(self):
+
+        self.command_printer.preview(
+            self.order_id
+        )
+
+    def _export_command_pdf(self):
+
+        self.command_printer.export_pdf(
+            self.order_id
+        )
+

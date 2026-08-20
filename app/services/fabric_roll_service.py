@@ -2,6 +2,9 @@ from app.repositories.fabric_roll_repository import FabricRollRepository
 from app.models.fabric_roll_model import FabricRollModel
 from app.repositories.fabric_roll_movement_repository import FabricRollMovementRepository
 import re
+from difflib import SequenceMatcher
+import unicodedata
+
 
 class FabricRollService:
     def __init__(self):
@@ -28,17 +31,13 @@ class FabricRollService:
         quantity,
         movement_type,
         location_name=None,
-        from_location=None,
-        to_location=None
     ):
 
-        self.movement_repo.create(
+        self.movement_repo.create_movement(
             roll_id=roll_id,
-            quantity=quantity,
             movement_type=movement_type,
             location_name=location_name,
-            from_location=from_location,
-            to_location=to_location
+            quantity=quantity
         )
 
     def delete_roll(self, roll_id):
@@ -170,3 +169,66 @@ class FabricRollService:
         self.repository.update_roll(roll)
 
         print("Quantidade reservada")
+
+    def _normalize_text(self, text):
+
+        text = unicodedata.normalize(
+            "NFKD",
+            text
+        )
+
+        text = (
+            text
+            .encode("ASCII", "ignore")
+            .decode("utf-8")
+        )
+
+        return text.strip().lower()
+
+    def find_similar_rolls(
+        self,
+        name: str,
+        limit: int = 5
+    ):
+
+        if not name:
+            return []
+
+        target = self._normalize_text(name)
+
+        rolls = self.list_rolls()
+
+        matches = []
+
+        for roll in rolls:
+
+            roll_name = self._normalize_text(
+                roll.name
+            )
+
+            ratio = SequenceMatcher(
+                None,
+                target,
+                roll_name
+            ).ratio()
+
+            if target in roll_name:
+                ratio += 0.25
+
+            matches.append(
+                (
+                    ratio,
+                    roll
+                )
+            )
+
+        matches.sort(
+            key=lambda item: item[0],
+            reverse=True
+        )
+
+        return [
+            roll
+            for score, roll in matches[:limit]
+            if score >= 0.25
+        ]

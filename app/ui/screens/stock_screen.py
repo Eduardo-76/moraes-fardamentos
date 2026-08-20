@@ -5,6 +5,12 @@ from app.ui.dialogs.stock_conversion_dialog import StockConversionDialog
 from app.ui.dialogs.stock_form_dialog import StockFormDialog
 from app.ui.dialogs.stock_movement_dialog import StockMovementDialog
 from app.ui.dialogs.stock_movement_history_dialog import StockMovementHistoryDialog
+from app.ui.dialogs.stock_reservations_dialog import (
+    StockReservationsDialog
+)
+
+
+
 
 
 class StockScreen(ctk.CTkFrame):
@@ -239,13 +245,29 @@ class StockScreen(ctk.CTkFrame):
         if item.stock_category != "Base":
             convert_button.configure(state="disabled")
 
+
+
+        reservations_button = ctk.CTkButton(
+            actions,
+            text="Reservas",
+            width=110,
+            command=lambda sid=item.id: self._open_reservations(sid),
+        )
+
+        reservations_button.grid(
+            row=2,
+            column=0,
+            padx=(0, 8),
+            pady=(0, 8),
+        )
+
         history_button = ctk.CTkButton(
             actions,
             text="Histórico",
             width=110,
             command=lambda sid=item.id: self._open_history_dialog(sid),
         )
-        history_button.grid(row=2, column=0, padx=(0, 8), pady=(0, 8))
+        history_button.grid(row=3, column=0, padx=(0, 8), pady=(0, 8))
 
         edit_button = ctk.CTkButton(
             actions,
@@ -253,7 +275,7 @@ class StockScreen(ctk.CTkFrame):
             width=110,
             command=lambda sid=item.id: self._open_edit_dialog(sid),
         )
-        edit_button.grid(row=3, column=0, padx=(0, 8), pady=(0, 8))
+        edit_button.grid(row=4, column=0, padx=(0, 8), pady=(0, 8))
 
         delete_button = ctk.CTkButton(
             actions,
@@ -263,7 +285,7 @@ class StockScreen(ctk.CTkFrame):
             hover_color="#991B1B",
             command=lambda sid=item.id: self._delete_item(sid),
         )
-        delete_button.grid(row=4, column=0, padx=(0, 8), pady=0)
+        delete_button.grid(row=5, column=0, padx=(0, 8), pady=0)
 
         return frame
 
@@ -307,3 +329,15 @@ class StockScreen(ctk.CTkFrame):
 
     def _handle_saved(self, _stock_id: int) -> None:
         self.refresh_items()
+
+    def _open_reservations(
+        self,
+        stock_entry_id: int
+    ):
+
+        dialog = StockReservationsDialog(
+            self,
+            stock_entry_id
+        )
+
+        self.wait_window(dialog)

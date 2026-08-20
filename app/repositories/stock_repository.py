@@ -125,7 +125,7 @@ class StockRepository:
                     reserved_quantity,
                     notes
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     stock.model,
@@ -346,6 +346,65 @@ class StockRepository:
         finally:
             connection.close()
 
+    def unreserve_stock_item(
+        self,
+        item_id: int,
+        quantity: int
+    ):
+
+        connection = get_connection()
+
+        try:
+
+            cursor = connection.cursor()
+
+            cursor.execute("""
+                UPDATE stock_entry_items
+                SET reserved_quantity =
+                    reserved_quantity - ?
+                WHERE id = ?
+            """, (
+                quantity,
+                item_id
+            ))
+
+            connection.commit()
+
+        finally:
+            connection.close()
+
+    def withdraw_stock_item(
+        self,
+        item_id: int,
+        quantity: int
+    ):
+        connection = get_connection()
+
+        try:
+
+            cursor = connection.cursor()
+
+            cursor.execute(
+                """
+                UPDATE stock_entry_items
+                SET
+                    quantity = quantity - ?,
+                    reserved_quantity = reserved_quantity - ?
+                WHERE id = ?
+                """,
+                (
+                    quantity,
+                    quantity,
+                    item_id
+                )
+            )
+
+            connection.commit()
+
+        finally:
+            connection.close()
+
+
     def release_stock_item(
         self,
         item_id: int,
@@ -373,57 +432,44 @@ class StockRepository:
         finally:
             connection.close()
 
-    def reserve_stock_item(
+    def get_stock_item_by_id(
         self,
-        item_id: int,
-        quantity: int
+        item_id: int
     ):
-
         connection = get_connection()
 
         try:
 
             cursor = connection.cursor()
 
-            cursor.execute("""
-                UPDATE stock_entry_items
-                SET reserved_quantity =
-                    reserved_quantity + ?
+            cursor.execute(
+                """
+                SELECT
+                    id,
+                    stock_entry_id,
+                    size,
+                    gender,
+                    quantity,
+                    reserved_quantity
+                FROM stock_entry_items
                 WHERE id = ?
-            """, (
-                quantity,
-                item_id
-            ))
+                """,
+                (item_id,)
+            )
 
-            connection.commit()
+            row = cursor.fetchone()
 
-        finally:
-            connection.close()
+            if not row:
+                return None
 
-
-    def release_stock_item(
-        self,
-        item_id: int,
-        quantity: int
-    ):
-
-        connection = get_connection()
-
-        try:
-
-            cursor = connection.cursor()
-
-            cursor.execute("""
-                UPDATE stock_entry_items
-                SET reserved_quantity =
-                    reserved_quantity - ?
-                WHERE id = ?
-            """, (
-                quantity,
-                item_id
-            ))
-
-            connection.commit()
+            return StockItemModel(
+                id=row["id"],
+                stock_entry_id=row["stock_entry_id"],
+                size=row["size"],
+                gender=row["gender"],
+                quantity=row["quantity"],
+                reserved_quantity=row["reserved_quantity"],
+            )
 
         finally:
             connection.close()

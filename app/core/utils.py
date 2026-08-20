@@ -48,10 +48,30 @@ def normalize_size(value: Optional[str]) -> Optional[str]:
 
 def normalize_gender(value: Optional[str]) -> Optional[str]:
     value = normalize_text(value)
+
     if not value:
         return None
 
-    return value.capitalize()
+    normalized = value.lower()
+
+    aliases = {
+        "masc": "Masculina",
+        "masculino": "Masculina",
+        "masculina": "Masculina",
+
+        "femi": "Feminina",
+        "fem": "Feminina",
+        "feminino": "Feminina",
+        "feminina": "Feminina",
+
+        "inf": "Infantil",
+        "infantil": "Infantil",
+    }
+
+    return aliases.get(
+        normalized,
+        value.capitalize()
+    )
 
 
 def normalize_phone(value: Optional[str]) -> Optional[str]:

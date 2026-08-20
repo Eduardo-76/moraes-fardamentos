@@ -44,11 +44,15 @@ class OrderFormDialog(ctk.CTkToplevel):
         elif self.initial_data:
             self._load_initial_data()
 
+
     def _load_initial_data(self) -> None:
         data = self.initial_data
 
         if data.get("client_name"):
             self.client_entry.insert(0, data["client_name"])
+
+        if data.get("city"):
+            self.city_entry.insert(0, data["city"])
 
         if data.get("model"):
             self.model_entry.insert(0, data["model"])
@@ -56,29 +60,45 @@ class OrderFormDialog(ctk.CTkToplevel):
         if data.get("fabric"):
             self.fabric_entry.insert(0, data["fabric"])
 
-        if data.get("quantity"):
-            self.quantity_entry.insert(0, str(data["quantity"]))
-
         if data.get("deadline"):
             self.deadline_entry.insert(0, data["deadline"])
 
-        self.type_entry.insert(0, data.get("order_type") or "Estampada Toda")
+        self.type_entry.insert(
+            0,
+            data.get("order_type") or "Estampada Toda"
+        )
 
         notes = []
+
         if data.get("color"):
-            notes.append(f"Cor informada no áudio: {data['color']}")
+            notes.append(
+                f"Cor informada no áudio: {data['color']}"
+            )
+
         if data.get("deadline_text"):
-            notes.append(f"Prazo falado no áudio: {data['deadline_text']}")
+            notes.append(
+                f"Prazo falado no áudio: {data['deadline_text']}"
+            )
+
         if data.get("raw_text"):
-            notes.append(f"Texto do áudio: {data['raw_text']}")
+            notes.append(
+                f"Texto do áudio: {data['raw_text']}"
+            )
 
         if notes:
-            self.notes_box.insert("1.0", "\n".join(notes))
+            self.notes_box.insert(
+                "1.0",
+                "\n".join(notes)
+            )
 
+        # Remove as linhas criadas inicialmente
         for item in self.item_rows:
             item["frame"].destroy()
+
         self.item_rows = []
 
+        # Se o Assistente conseguiu identificar os itens,
+        # cria cada linha individualmente.
         for item in data.get("items", []):
             self._add_item_row(
                 size=item.get("size") or "",
@@ -86,9 +106,15 @@ class OrderFormDialog(ctk.CTkToplevel):
                 quantity=item.get("quantity") or "",
             )
 
+        # Caso o Assistente ainda não tenha conseguido
+        # identificar os itens individualmente, mas tenha
+        # encontrado uma quantidade, aproveitamos essa
+        # quantidade na primeira linha.
         if not self.item_rows:
-            self._add_item_row()
 
+            self._add_item_row(
+                quantity=data.get("quantity") or ""
+            )
 
 
     def _build_header(self) -> None:
@@ -122,7 +148,6 @@ class OrderFormDialog(ctk.CTkToplevel):
         self.model_entry = self._create_entry("Modelo", 1, 1)
         self.type_entry = self._create_entry("Tipo", 2, 0)
         self.fabric_entry = self._create_entry("Tecido", 2, 1)
-        self.quantity_entry = self._create_entry("Quantidade total", 3, 0)
         self.deadline_entry = self._create_entry("Prazo (YYYY-MM-DD)", 3, 1)
         self.total_value_entry = self._create_entry("Valor total", 4, 0)
 
@@ -167,6 +192,24 @@ class OrderFormDialog(ctk.CTkToplevel):
             text="Itens do pedido",
             font=ctk.CTkFont(size=18, weight="bold"),
         )
+
+        self.total_quantity_label = ctk.CTkLabel(
+            self.items_frame,
+            text="Quantidade total calculada: 0",
+            font=ctk.CTkFont(
+                size=14,
+                weight="bold"
+            )
+        )
+
+        self.total_quantity_label.grid(
+            row=0,
+            column=2,
+            padx=12,
+            pady=(12, 6),
+            sticky="e"
+        )
+
         items_title.grid(row=0, column=0, sticky="w", padx=12, pady=(12, 6))
 
         add_item_button = ctk.CTkButton(
@@ -201,6 +244,12 @@ class OrderFormDialog(ctk.CTkToplevel):
             gender_entry.insert(0, gender)
 
         quantity_entry = ctk.CTkEntry(row_frame, placeholder_text="Quantidade")
+        
+        quantity_entry.bind(
+            "<KeyRelease>",
+            lambda e: self._update_total_quantity()
+        )
+
         quantity_entry.grid(row=0, column=2, padx=8, pady=8, sticky="ew")
         if quantity != "":
             quantity_entry.insert(0, str(quantity))
@@ -221,8 +270,9 @@ class OrderFormDialog(ctk.CTkToplevel):
                 "size": size_entry,
                 "gender": gender_entry,
                 "quantity": quantity_entry,
-            }
+            }   
         )
+        self._update_total_quantity()
 
     def _remove_item_row(self, row_frame) -> None:
         if len(self.item_rows) <= 1:
@@ -237,6 +287,7 @@ class OrderFormDialog(ctk.CTkToplevel):
 
         self.item_rows = remaining
         self._rebuild_item_rows()
+        self._update_total_quantity()
 
     def _rebuild_item_rows(self) -> None:
         for index, item in enumerate(self.item_rows):
@@ -298,8 +349,6 @@ class OrderFormDialog(ctk.CTkToplevel):
             self.type_entry.insert(0, order.type)
         if order.fabric:
             self.fabric_entry.insert(0, order.fabric)
-        if order.quantity is not None:
-            self.quantity_entry.insert(0, str(order.quantity))
         if order.deadline:
             self.deadline_entry.insert(0, order.deadline)
         if order.total_value is not None:
@@ -322,11 +371,13 @@ class OrderFormDialog(ctk.CTkToplevel):
                 )
         else:
             self._add_item_row()
+            self._update_total_quantity()
 
     def _save_order(self) -> None:
         items = []
 
         for item in self.item_rows:
+
             raw_size = item["size"].get().strip()
             raw_gender = item["gender"].get().strip()
             raw_quantity = item["quantity"].get().strip()
@@ -342,8 +393,15 @@ class OrderFormDialog(ctk.CTkToplevel):
 
             items.append(normalized_item)
 
-        total_quantity = normalize_int(self.quantity_entry.get())
-        total_value = normalize_money(self.total_value_entry.get())
+
+        total_quantity = sum(
+            item["quantity"] or 0
+            for item in items
+        )
+
+        total_value = normalize_money(
+            self.total_value_entry.get()
+            )
 
         payload = {
             "client_name": normalize_name(self.client_entry.get()),
@@ -374,3 +432,24 @@ class OrderFormDialog(ctk.CTkToplevel):
             self.on_save(saved_order_id)
 
         self.destroy()
+
+    def _update_total_quantity(self):
+
+        total = 0
+
+        for item in self.item_rows:
+
+            value = item["quantity"].get().strip()
+
+            try:
+                total += int(value)
+
+            except ValueError:
+                pass
+
+        self.total_quantity_label.configure(
+            text=(
+                f"Quantidade total calculada: "
+                f"{total}"
+            )
+        )

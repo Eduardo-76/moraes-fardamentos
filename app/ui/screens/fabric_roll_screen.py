@@ -303,32 +303,33 @@ class FabricRollScreen(ctk.CTkFrame):
     def _handle_transfer(
         self,
         roll,
-        from_loc,
-        to_loc,
+        from_location_name,
+        to_location_name,
         qty
     ):
-
-        if from_loc.quantity < qty:
-            print("Estoque insuficiente")
-            return
-
-        if from_loc == to_loc:
-            return
-
-        if from_loc.location_name == to_loc.location_name:
-            print("Locais iguais")
-            return
 
         from_location = None
         to_location = None
 
         for loc in roll.locations:
 
-            if loc.location_name == from_loc:
+            if loc.location_name == from_location_name:
                 from_location = loc
 
-            if loc.location_name == to_loc:
+            if loc.location_name == to_location_name:
                 to_location = loc
+
+        if not from_location or not to_location:
+            return
+
+        if from_location == to_location:
+            print("Locais iguais")
+            return
+
+        if from_location.quantity < qty:
+            print("Estoque insuficiente")
+            return
+
 
         if not from_location or not to_location:
             return

@@ -1,9 +1,19 @@
 from typing import List, Optional
 from datetime import datetime, timedelta
+
 from app.core.constants import ORDER_STAGES
 from app.models.order_model import OrderItemModel, OrderModel
 from app.repositories.order_repository import OrderRepository
 from app.services.stock_service import StockService
+from app.repositories.order_stock_reservation_repository import (
+    OrderStockReservationRepository
+)
+from app.models.print_job_model import (
+    PrintJobModel,
+    PrintGradeModel,
+    PrintGradeItemModel,
+)
+from app.services.audio_service import AudioService
 
 
 
@@ -11,6 +21,8 @@ class OrderService:
     def __init__(self) -> None:
         self.repository = OrderRepository()
         self.stock_service = StockService()
+        self.reservation_repository = OrderStockReservationRepository()
+        self.audio_service = AudioService()
 
     def create_order(
         self,
@@ -183,13 +195,99 @@ class OrderService:
             return "- Sem detalhamento de tamanhos"
 
         lines = []
+        
         for item in order.items:
             quantity = item.quantity or 0
             size = item.size or "Sem tamanho"
             gender = item.gender or "Sem categoria"
-            lines.append(f"- {quantity} {size} - {gender}")
+            lines.append(f"• {size} {gender}: {quantity}")
 
         return "\n".join(lines)
+    
+    def _build_print_grades(
+        self,
+        order: OrderModel
+    ):
+        GRADE_TEMPLATE = {
+            "Masc": ["PP", "P", "PK", "M", "G", "GG", "XGG"],
+            "Femi": ["PP", "P", "M", "G", "GG", "XGG"],
+            "Infantil": ["PP", "P", "M", "G"],
+        }
+
+        # Converte o gênero armazenado no pedido
+        # para o nome utilizado pelo template da comanda.
+        GENDER_MAP = {
+            "Masculina": "Masc",
+            "Masculino": "Masc",
+
+            "Feminina": "Femi",
+            "Feminino": "Femi",
+
+            "Infantil": "Infantil",
+        }
+
+        grades = []
+
+        print("\nItens do pedido:\n")
+
+        for item in order.items:
+
+            print(
+                item.gender,
+                item.size,
+                item.quantity
+            )
+
+        for gender, sizes in GRADE_TEMPLATE.items():
+
+            print(f"\nGrupo Template: {gender}")
+
+            grade_items = []
+
+            for size in sizes:
+
+                quantity = 0
+
+                for item in order.items:
+
+                    raw_gender = item.gender or ""
+
+                    item_gender = GENDER_MAP.get(
+                        raw_gender,
+                        raw_gender
+                    )
+
+                    print(
+                        f"Item: ({item.gender}, {item.size}) "
+                        f"→ ({item_gender}, {item.size}) "
+                        f"Comparando com ({gender}, {size})"
+                    )
+
+                    if (
+                        item_gender == gender
+                        and item.size.upper() == size.upper()
+                    ):
+                        print(">>> ENCONTROU!")
+
+                        quantity = item.quantity or 0
+                        break
+
+                grade_items.append(
+                    PrintGradeItemModel(
+                        size=size,
+                        quantity=quantity
+                    )
+                )
+
+            grades.append(
+                PrintGradeModel(
+                    group=gender,
+                    order=len(grades),
+                    items=grade_items
+                )
+            )
+
+        return grades                       
 
     def list_upcoming_deadline_orders(self, days: int = 5) -> List[OrderModel]:
         today = datetime.now().date()
@@ -358,8 +456,8 @@ class OrderService:
             raise Exception("Este pedido já possui estoque reservado")
 
         result = self.stock_service.reserve_order_stock(
-            stock_id,
-            order.items
+            order,
+            stock_id
         )
 
         self.repository.mark_stock_reserved(
@@ -367,3 +465,122 @@ class OrderService:
         )
 
         return result
+    
+    def withdraw_reserved_stock(
+        self,
+        order_id: int
+    ):
+        self.stock_service.withdraw_order_stock(
+            order_id
+
+
+        )
+
+    def change_status(
+        self,
+        order_id: int,
+        new_status: str,
+        notes: str | None = None
+    ):
+        order = self.get_order_by_id(order_id)
+
+        if not order:
+            raise Exception(
+                "Pedido não encontrado"
+            )
+
+        old_status = order.status
+
+        self.repository.update_status(
+            order_id,
+            new_status
+        )
+
+        self.repository.create_status_history(
+            order_id,
+            old_status,
+            new_status,
+            notes
+        )
+
+    def move_order(
+        self,
+        order_id: int,
+        new_stage: str,
+        reason: str | None = None
+    ):
+        pass
+
+    def get_print_job(
+        self,
+        order_id: int
+    ) -> PrintJobModel:
+        """
+        Monta todas as informações necessárias
+        para impressão da comanda.
+        """
+
+        order = self.get_order_by_id(order_id)
+
+        if not order:
+            raise Exception("Pedido não encontrado")
+
+        return PrintJobModel(
+            order_id=order.id,
+
+            client_name=order.client_name or "",
+            client_phone=order.client_phone,
+            client_city=order.client_city,
+
+            delivery_date=order.deadline,
+
+            model=order.model,
+            fabric=order.fabric,
+            type=order.type,
+
+            total_value=order.total_value or 0,
+
+            observations=order.notes,
+
+            grades=self._build_print_grades(order)
+        )
+
+    def delete_order(
+        self,
+        order_id: int
+    ) -> None:
+
+        order = self.get_order_by_id(order_id)
+
+        if not order:
+            raise Exception("Pedido não encontrado.")
+
+        if order.audio_id:
+
+            audio = self.audio_service.get_audio_by_id(
+                order.audio_id
+            )
+
+            if audio:
+                self.audio_service.delete_audio(
+                    audio.id,
+                    audio.file_path
+                )
+
+        self.repository.delete_order(order_id)
+
+    def update_stage(
+        self,
+        order_id: int,
+        stage: str
+    ) -> None:
+
+        order = self.get_order_by_id(order_id)
+
+        if not order:
+            raise Exception("Pedido não encontrado.")
+
+        self.repository.update_stage(
+            order_id,
+            stage
+        )

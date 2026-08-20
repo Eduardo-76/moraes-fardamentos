@@ -1,11 +1,4 @@
-ORDER_STAGES = [
-    'Recepção',
-    'Design',
-    'Impressão',
-    'Estamparia',
-    'Costura',
-    'Retorno à Recepção',
-]
+
 
 STAGE_STATUS = ['Em espera', 'Em produção', 'Concluído']
 PRIORITIES = ['Baixa', 'Média', 'Alta', 'Prioridade Máxima']
@@ -66,3 +59,9 @@ FABRIC_LOCATIONS = [
     "Costureiras",
     "Empresa",
 ]
+
+ORDER_GENDERS = (
+    "Masculina",
+    "Feminina",
+    "Infantil",
+)

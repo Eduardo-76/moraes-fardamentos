@@ -17,6 +17,11 @@ from app.ui.screens.order_detail_screen import OrderDetailScreen
 from app.ui.screens.orders_screen import OrdersScreen
 from app.ui.screens.stock_screen import StockScreen
 from app.ui.screens.fabric_roll_screen import FabricRollScreen
+from app.ui.screens.security_screen import SecurityScreen
+from app.ui.screens.order_management_screen import (
+    OrderManagementScreen
+)
+
 
 class AppWindow(ctk.CTk):
     def __init__(self) -> None:
@@ -102,6 +107,20 @@ class AppWindow(ctk.CTk):
         self.main_frame.grid_rowconfigure(0, weight=1)
         self.main_frame.grid_columnconfigure(0, weight=1)
 
+        self.security_button = ctk.CTkButton(
+            self.sidebar,
+            text="🛠 Administração",
+            command=self.show_security,
+        )
+
+        self.security_button.grid(
+            row=7,
+            column=0,
+            padx=20,
+            pady=8,
+            sticky="ew"
+        )
+
     def _clear_main_frame(self) -> None:
         for widget in self.main_frame.winfo_children():
             widget.destroy()
@@ -147,3 +166,33 @@ class AppWindow(ctk.CTk):
         self._clear_main_frame()
         self.current_screen = FabricRollHistoryScreen(self.main_frame)
         self.current_screen.grid(row=0, column=0, sticky="nsew", padx=16, pady=16)
+
+    def show_security(self):
+        self._clear_main_frame()
+
+        self.current_screen = SecurityScreen(
+            self.main_frame
+        )
+
+        self.current_screen.grid(
+            row=0,
+            column=0,
+            sticky="nsew",
+            padx=16,
+            pady=16
+        )
+
+    def show_order_management(self):
+        self._clear_main_frame()
+
+        self.current_screen = OrderManagementScreen(
+            self.main_frame
+        )
+
+        self.current_screen.grid(
+            row=0,
+            column=0,
+            sticky="nsew",
+            padx=16,
+            pady=16
+        )

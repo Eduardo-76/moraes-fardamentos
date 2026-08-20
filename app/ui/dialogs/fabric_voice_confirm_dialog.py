@@ -8,11 +8,13 @@ class FabricVoiceConfirmDialog(ctk.CTkToplevel):
         master,
         roll,
         quantity,
+        location,
         on_confirm
     ):
         super().__init__(master)
 
         self.roll = roll
+        self.location = location
         self.quantity = quantity
         self.on_confirm = on_confirm
 
@@ -46,7 +48,7 @@ Quantidade:
 +{self.quantity}
 
 Local:
-Depósito
+{self.location}
 """
 
         label = ctk.CTkLabel(
@@ -100,6 +102,7 @@ Depósito
             100,
             lambda: self.on_confirm(
                 self.roll,
+                self.location,
                 self.quantity
             )
         )

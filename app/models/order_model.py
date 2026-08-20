@@ -30,6 +30,7 @@ class OrderModel:
     stock_withdrawn: int = 0
     notes: Optional[str] = None
     current_stage: str = "Recepção"
+    status: str = "Em espera"
     created_at: Optional[str] = None
     items: list[OrderItemModel] = field(default_factory=list)
     audio_id: Optional[int] = None

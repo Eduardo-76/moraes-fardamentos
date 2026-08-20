@@ -1,6 +1,5 @@
 import re
 
-from numpy.ma import product
 from app.core.constants import FABRIC_LOCATIONS
 from difflib import get_close_matches
 
@@ -67,14 +66,18 @@ class IntentParser:
 
             quantity = self._extract_quantity(text)
 
-            from_location = None
-            to_location = None
+        from_location = None
+        to_location = None
 
-            if operation == "transfer":
+        if operation == "transfer":
 
-                from_location, to_location = (
-                    self._extract_transfer_locations(text)
-                )
+            from_location, to_location = (
+                self._extract_transfer_locations(text)
+            )
+
+        elif operation == "entry":
+
+            to_location = self._extract_fabric_location(text)
 
             fabric_name = self._extract_fabric_name(text)
 
@@ -99,6 +102,14 @@ class IntentParser:
             or "pedido" in text
         ):
 
+            items = self._extract_order_items(text)
+
+            if items:
+                quantity = sum(
+                    item["quantity"]
+                    for item in items
+                )
+
             return {
                 "intent": "create_order",
                 "label": "Criar Pedido",
@@ -108,6 +119,8 @@ class IntentParser:
                 "quantity": quantity,
 
                 "product_name": product,
+
+                "items": items,
 
                 "raw_text": original_text
             }
@@ -126,6 +139,98 @@ class IntentParser:
     # HELPERS
     # ===================================
 
+    def _extract_order_items(self, text):
+
+        items = []
+
+        pattern = re.compile(
+            r"""
+            (?P<quantity>\d+)
+
+            \s+
+
+            (?:camisa[s]?|blusa[s]?|short[s]?|farda[s]?|uniforme[s]?)?
+
+            [\s,.-]*
+
+            (?P<size>
+                XGG
+                |XG
+                |GG
+                |PP
+                |P
+                |M
+                |G
+            )
+
+            [\s,.-]+
+
+            (?P<gender>
+                masculina
+                |masculino
+                |masculinas
+                |masculinos
+                |feminina
+                |feminino
+                |femininas
+                |femininos
+                |masc
+                |femi
+            )
+            """,
+            re.IGNORECASE | re.VERBOSE,
+        )
+
+        for match in pattern.finditer(text):
+
+            quantity = int(
+                match.group("quantity")
+            )
+
+            size = match.group("size").upper()
+
+            gender = self._normalize_order_gender(
+                match.group("gender")
+            )
+
+            items.append(
+                {
+                    "size": size,
+                    "gender": gender,
+                    "quantity": quantity,
+                }
+            )
+
+        return items
+
+    def _normalize_order_gender(self, gender):
+
+        gender = gender.lower().strip()
+
+        masculine = [
+            "masculina",
+            "masculino",
+            "masculinas",
+            "masculinos",
+            "masc",
+        ]
+
+        feminine = [
+            "feminina",
+            "feminino",
+            "femininas",
+            "femininos",
+            "femi",
+        ]
+
+        if gender in masculine:
+            return "Masculina"
+
+        if gender in feminine:
+            return "Feminina"
+
+        return gender.capitalize()
+
     def _extract_quantity(self, text):
 
         match = re.search(r"\d+", text)
@@ -137,13 +242,33 @@ class IntentParser:
 
     def _extract_fabric_name(self, text):
 
-        # remove números
+        text = text.lower()
+
+        # Remove números
         text = re.sub(r"\d+", "", text)
 
-        # remove palavras comuns
         remove_words = [
-
             # operação
+            "entrada",
+            "entrar",
+            "entrei",
+            "adicionar",
+            "adiciona",
+            "acrescentar",
+            "acrescentei",
+
+            "saida",
+            "saída",
+            "retirar",
+            "retirada",
+            "remover",
+
+            "transferir",
+            "transferência",
+            "mover",
+            "mandar",
+
+            # rolo
             "rolo",
             "rolos",
             "rollo",
@@ -153,20 +278,32 @@ class IntentParser:
             "hole",
             "holles",
 
+            # categoria
+            "malha",
+
             # conectores
             "de",
             "da",
             "do",
+            "na",
+            "no",
+            "em",
 
-            # categoria
-            "malha",
+            # locais
+            "depósito",
+            "deposito",
+            "casa",
+            "costureira",
+            "costureiras",
+            "empresa",
         ]
 
         words = text.split()
 
         filtered = [
-            w for w in words
-            if w not in remove_words
+            word
+            for word in words
+            if word not in remove_words
         ]
 
         result = " ".join(filtered).strip()
@@ -174,8 +311,8 @@ class IntentParser:
         result = result.replace(".", "")
         result = result.replace(",", "")
 
-        return result
-    
+        return result  
+  
     def _extract_transfer_locations(self, text):
 
         text = text.lower()
@@ -230,8 +367,30 @@ class IntentParser:
         locations = [
             "Depósito",
             "Casa",
-            "Costureira"
+            "Costureiras",
+            "Empresa",
         ]
+
+        normalized_word = (
+            word
+            .strip()
+            .lower()
+        )
+
+        aliases = {
+            "deposito": "Depósito",
+            "depósito": "Depósito",
+
+            "casa": "Casa",
+
+            "costureira": "Costureiras",
+            "costureiras": "Costureiras",
+
+            "empresa": "Empresa",
+        }
+
+        if normalized_word in aliases:
+            return aliases[normalized_word]
 
         match = get_close_matches(
             word,
@@ -310,3 +469,42 @@ class IntentParser:
                 return product.capitalize()
 
         return None
+
+    def _extract_fabric_location(self, text):
+
+        text = text.lower()
+
+        locations = [
+            "Depósito",
+            "Casa",
+            "Costureiras",
+            "Empresa",
+        ]
+
+        patterns = [
+            r"\bna\s+(depósito|deposito|casa|empresa|costureira|costureiras)\b",
+            r"\bno\s+(depósito|deposito|casa|empresa|costureiro|costureiros)\b",
+            r"\bem\s+(depósito|deposito|casa|empresa|costureira|costureiras)\b",
+            r"\bpara\s+(depósito|deposito|casa|empresa|costureira|costureiras)\b",
+        ]
+
+        for pattern in patterns:
+
+            match = re.search(
+                pattern,
+                text
+            )
+
+            if not match:
+                continue
+
+            candidate = match.group(1)
+
+            normalized = self._normalize_location(
+                candidate
+            )
+
+            if normalized:
+                return normalized
+
+        return None    

@@ -8,3 +8,4 @@ sounddevice>=0.4.7
 soundfile>=0.12.1
 numpy>=1.26.4
 PyInstaller>=6.10.0
+pip freeze > 26.2.1

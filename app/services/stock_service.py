@@ -5,11 +5,37 @@ from app.models.order_model import OrderModel
 from app.models.stock_model import StockItemModel, StockModel
 from app.repositories.stock_repository import StockRepository
 from app.models.order_model import OrderItemModel
+from app.repositories.order_stock_reservation_repository import (
+    OrderStockReservationRepository
+)
+
+from app.models.order_stock_reservation_model import (
+    OrderStockReservationModel
+)
+from app.repositories.order_repository import (
+    OrderRepository
+)
+
+from app.models.stock_movement_model import (
+    StockMovementModel,
+    StockMovementItemModel,
+)
+from app.repositories.stock_movement_repository import (
+    StockMovementRepository,
+)
+
+from app.core.utils import normalize_gender, normalize_size
 
 
 class StockService:
     def __init__(self) -> None:
         self.repository = StockRepository()
+        self.stock_movement_repository = StockMovementRepository()
+        self.order_stock_reservation_repository = (
+            OrderStockReservationRepository()
+        )
+
+        self.order_repository = OrderRepository()
 
     def list_upcoming_deadline_orders(self, days: int = 5) -> List[OrderModel]:
         today = datetime.now().date()
@@ -189,31 +215,42 @@ class StockService:
 
     def find_stock_item(
         self,
-        stock_entry_id: int,
+        model: str,
+        fabric: str,
         size: str,
         gender: str
     ):
 
-        stock = self.get_stock_entry_by_id(
-            stock_entry_id
-        )
-
-        if not stock:
-            return None, None
-
-        for item in stock.items:
-
-            if (
-                item.size == size
-                and item.gender == gender
-            ):
-                return stock, item
-
-        return None, None
-
         for stock in self.list_stock_entries():
 
+            print("-----------------------")
+            print("PEDIDO")
+            print("Modelo:", model)
+            print("Tecido:", fabric)
+
+            print()
+
+            print("ESTOQUE")
+            print("Modelo:", stock.model)
+            print("Tecido:", stock.fabric)
+
+
+            # Produto correto
+            if stock.model != model:
+                continue
+
+            # Tecido correto
+            if stock.fabric != fabric:
+                continue
+
+            # Agora procura o tamanho
             for item in stock.items:
+
+                print(
+                    item.size,
+                    item.gender
+                )
+
 
                 if (
                     item.size == size
@@ -222,20 +259,27 @@ class StockService:
                     return stock, item
 
         return None, None
-
+    
     def simulate_order_reservation(
         self,
-        order_items
+        order
     ):
+
+        print(order)
+        print(order.items)
+        print(len(order.items))
 
         result = []
 
-        for order_item in order_items:
+        for order_item in order.items:
 
             stock, stock_item = self.find_stock_item(
-                order_item.size,
-                order_item.gender
+                model=order.model,
+                fabric=order.fabric,
+                size=order_item.size,
+                gender=order_item.gender
             )
+
 
             print(
                 "Pedido:",
@@ -290,19 +334,33 @@ class StockService:
     
     def reserve_order_stock(
         self,
-        stock_entry_id,
-        order_items
+        order,
+        stock_entry_id
     ):
+
+        stock = self.get_stock_entry_by_id(
+            stock_entry_id
+        )
+
+        if not stock:
+            raise Exception(
+                "Estoque selecionado não encontrado."
+            )
 
         result = []
 
-        for order_item in order_items:
+        for order_item in order.items:
 
-            stock, stock_item = self.find_stock_item(
-                stock_entry_id,
-                order_item.size,
-                order_item.gender
-            )
+            stock_item = None
+
+            for item in stock.items:
+
+                if (
+                    normalize_size(item.size) == normalize_size(order_item.size)
+                    and normalize_gender(item.gender) == normalize_gender(order_item.gender)
+                ):
+                    stock_item = item
+                    break
 
             if not stock_item:
 
@@ -337,6 +395,18 @@ class StockService:
                     reserved
                 )
 
+            reservation = OrderStockReservationModel(
+                order_id=order.id,
+                stock_entry_id=stock.id,
+                stock_item_id=stock_item.id,
+                quantity=reserved,
+                status="RESERVED"
+            )
+
+            self.order_stock_reservation_repository.create_reservation(
+                reservation
+            )
+
             result.append({
                 "size": order_item.size,
                 "gender": order_item.gender,
@@ -345,3 +415,133 @@ class StockService:
             })
 
         return result
+
+    def list_active_by_order(
+        self,
+        order_id: int
+    ):
+        return (
+            self.order_stock_reservation_repository
+            .list_active_by_order(order_id)
+        )
+    
+    def cancel_reservation(
+        self,
+        reservation_id: int
+    ):
+
+        reservation = (
+            self.order_stock_reservation_repository.get_by_id(
+                reservation_id
+            )
+        )
+
+        if not reservation:
+            raise Exception(
+                "Reserva não encontrada"
+            )
+
+        if reservation["status"] != "RESERVED":
+            raise Exception(
+                "Esta reserva não está mais ativa"
+            )
+
+        order_id = reservation["order_id"]
+
+        self.repository.unreserve_stock_item(
+            reservation["stock_item_id"],
+            reservation["quantity"]
+        )
+
+        self.order_stock_reservation_repository.cancel_reservation(
+            reservation_id
+        )
+
+        has_active = (
+            self.order_stock_reservation_repository
+            .has_active_reservations(order_id)
+        )
+
+
+        has_active = (
+            self.order_stock_reservation_repository
+            .has_active_reservations(order_id)
+        )
+
+        if not has_active:
+            
+            self.order_repository.unmark_stock_reserved(
+                order_id
+            )
+
+    def withdraw_order_stock(
+        self,
+        order_id: int
+    ):
+
+        reservations = (
+            self.order_stock_reservation_repository
+            .list_active_by_order(order_id)
+        )
+
+        if not reservations:
+            raise Exception(
+                "Este pedido não possui reservas ativas"
+            )
+
+        movement_items = []
+        total_quantity = 0
+
+        for reservation in reservations:
+
+            stock_item = self.repository.get_stock_item_by_id(
+                reservation["stock_item_id"]
+            )
+
+            movement_items.append(
+                StockMovementItemModel(
+                    size=stock_item.size,
+                    gender=stock_item.gender,
+                    quantity=reservation["quantity"]
+                )
+            )
+
+            total_quantity += reservation["quantity"]
+
+        movement = StockMovementModel(
+            stock_entry_id=reservations[0]["stock_entry_id"],
+            movement_type="Saída",
+            quantity=total_quantity,
+            notes=f"Baixa vinculada ao pedido #{order_id}",
+            items=movement_items,
+        )
+        print("CRIANDO MOVIMENTACAO")
+        self.stock_movement_repository.create_movement(
+            movement
+        )
+        print("MOVIMENTACAO CRIADA")
+
+        for reservation in reservations:
+
+            print(
+                "BAIXANDO:",
+                reservation["stock_item_id"],
+                reservation["quantity"]
+            )
+
+            self.repository.withdraw_stock_item(
+                reservation["stock_item_id"],
+                reservation["quantity"]
+            )
+
+            self.order_stock_reservation_repository.withdraw_reservation(
+                reservation["id"]
+            )
+
+        self.order_repository.mark_stock_withdrawn(
+            order_id
+        )
+
+        self.order_repository.unmark_stock_reserved(
+            order_id
+        )

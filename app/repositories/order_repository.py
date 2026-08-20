@@ -25,9 +25,10 @@ class OrderRepository:
                     paid,
                     stock_reserved,
                     notes,
-                    current_stage
+                    current_stage,
+                    status
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     order.client_id,
@@ -43,6 +44,7 @@ class OrderRepository:
                     order.stock_reserved,
                     order.notes,
                     order.current_stage,
+                    order.status,
                 ),
             )
 
@@ -174,6 +176,7 @@ class OrderRepository:
                     o.id,
                     o.client_id,
                     o.audio_id,
+                    o.status,
                     c.name AS client_name,
                     c.phone AS client_phone,
                     c.city AS client_city,
@@ -215,6 +218,7 @@ class OrderRepository:
                     paid=row["paid"],
                     notes=row["notes"],
                     current_stage=row["current_stage"],
+                    status=row["status"],
                     created_at=row["created_at"],
                 )
                 for row in rows
@@ -226,6 +230,7 @@ class OrderRepository:
         connection = get_connection()
         try:
             cursor = connection.cursor()
+
             cursor.execute(
                 """
                 SELECT
@@ -233,6 +238,7 @@ class OrderRepository:
                     o.client_id,
                     o.audio_id,
                     c.name AS client_name,
+                    o.status,
                     c.phone AS client_phone,
                     c.city AS client_city,
                     o.model,
@@ -245,6 +251,7 @@ class OrderRepository:
                     o.priority,
                     o.total_value,
                     o.paid,
+                    o.status,
                     o.notes,
                     o.current_stage,
                     o.created_at
@@ -281,6 +288,7 @@ class OrderRepository:
                 paid=row["paid"],
                 notes=row["notes"],
                 current_stage=row["current_stage"],
+                status=row["status"],
                 created_at=row["created_at"],
                 items=items,
             )
@@ -486,6 +494,171 @@ class OrderRepository:
                 WHERE id = ?
                 """,
                 (order_id,)
+            )
+
+            connection.commit()
+
+        finally:
+            connection.close()
+
+    def unmark_stock_reserved(
+        self,
+        order_id: int
+    ):
+        
+        connection = get_connection()
+
+        try:
+            cursor = connection.cursor()
+
+            cursor.execute(
+                """
+                UPDATE orders
+                SET stock_reserved = 0
+                WHERE id = ?
+                """,
+                (order_id,)
+            )
+
+            connection.commit()
+
+        finally:
+            connection.close()
+
+    def update_status(
+        self,
+        order_id: int,
+        status: str
+    ):
+        connection = get_connection()
+
+        try:
+
+            cursor = connection.cursor()
+
+            cursor.execute(
+                """
+                UPDATE orders
+                SET status = ?
+                WHERE id = ?
+                """,
+                (
+                    status,
+                    order_id
+                )
+            )
+
+            connection.commit()
+
+        finally:
+            connection.close()
+
+    def create_status_history(
+        self,
+        order_id: int,
+        old_status: str | None,
+        new_status: str,
+        notes: str | None = None
+    ):
+        connection = get_connection()
+
+        try:
+
+            cursor = connection.cursor()
+
+            cursor.execute(
+                """
+                INSERT INTO order_status_history (
+                    order_id,
+                    old_status,
+                    new_status,
+                    notes
+                )
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    order_id,
+                    old_status,
+                    new_status,
+                    notes
+                )
+            )
+
+            connection.commit()
+
+        finally:
+            connection.close()
+
+    def delete_order(self, order_id: int) -> None:
+
+        connection = get_connection()
+
+        try:
+
+            cursor = connection.cursor()
+
+            cursor.execute(
+                "DELETE FROM order_items WHERE order_id = ?",
+                (order_id,)
+            )
+
+            cursor.execute(
+                "DELETE FROM order_stages WHERE order_id = ?",
+                (order_id,)
+            )
+
+            cursor.execute(
+                "DELETE FROM attachments WHERE order_id = ?",
+                (order_id,)
+            )
+
+            cursor.execute(
+                "DELETE FROM generated_messages WHERE order_id = ?",
+                (order_id,)
+            )
+
+            cursor.execute(
+                "DELETE FROM order_status_history WHERE order_id = ?",
+                (order_id,)
+            )
+
+            cursor.execute(
+                "DELETE FROM order_stock_reservations WHERE order_id = ?",
+                (order_id,)
+            )
+
+            cursor.execute(
+                "DELETE FROM orders WHERE id = ?",
+                (order_id,)
+            )
+
+            connection.commit()
+
+        finally:
+            connection.close()
+
+    def update_stage(
+        self,
+        order_id: int,
+        stage: str
+    ) -> None:
+
+        connection = get_connection()
+
+        try:
+
+            cursor = connection.cursor()
+
+            cursor.execute(
+                """
+                UPDATE orders
+                SET current_stage = ?
+                WHERE id = ?
+                """,
+                (
+                    stage,
+                    order_id
+                )
             )
 
             connection.commit()

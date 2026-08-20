@@ -1,0 +1,17 @@
+{
+    "system": {
+        "name": "Moraes Fardamentos",
+        "version": "1.0.0",
+        "database": "SQLite"
+    },
+    "backup": {
+        "type": "full",
+        "created_at": "2026-07-24T14:34:01.840626"
+    },
+    "contents": {
+        "data": true,
+        "pedidos": true,
+        "artes": false,
+        "config": false
+    }
+}

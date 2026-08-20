@@ -8,7 +8,7 @@ from app.services.audio_service import AudioService
 from app.voice.audio_recorder import AudioRecorder
 from app.voice.speech_to_text import SpeechToTextService
 from app.ui.dialogs.audio_command_confirm_dialog import AudioCommandConfirmDialog
-from app.assistant.intent_parser import IntentParser
+from app.voice.intent_parser import IntentParser
 from app.ui.dialogs.audio_action_preview_dialog import AudioActionPreviewDialog
 from app.services.fabric_roll_service import FabricRollService
 
@@ -28,7 +28,9 @@ import unicodedata
 from app.ui.dialogs.fabric_voice_order_dialog import FabricVoiceOrderDialog
 from app.ui.dialogs.order_form_dialog import OrderFormDialog
 
-
+from app.ui.dialogs.fabric_voice_selection_dialog import (
+    FabricVoiceSelectionDialog
+)
 
 
 class AudioScreen(ctk.CTkFrame):
@@ -42,7 +44,11 @@ class AudioScreen(ctk.CTkFrame):
         self.fabric_roll_service = FabricRollService()
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
-        
+
+        self.is_recording = False
+        self.recording_seconds = 0
+        self.recording_timer = None
+        self.record_button = None
 
         self._build_header()
         self._build_list()
@@ -74,15 +80,15 @@ class AudioScreen(ctk.CTkFrame):
         )
         import_button.grid(row=0, column=1, rowspan=2, padx=16, pady=16, sticky="e")
 
-        record_button = ctk.CTkButton(
+        self.record_button = ctk.CTkButton(
             header,
             text="🎤 Gravar",
-            command=self._record_audio,
+            command=self._toggle_recording,
             fg_color="#16A34A",
             hover_color="#15803D"
         )
 
-        record_button.grid(
+        self.record_button.grid(
             row=0,
             column=2,
             rowspan=2,
@@ -214,27 +220,125 @@ class AudioScreen(ctk.CTkFrame):
     def _handle_transcription_confirm(self, audio_id: int, text: str):
         print("TRANSCRIÇÃO CONFIRMADA:", text)
 
+    def _toggle_recording(self):
 
-    def _record_audio(self):
+        if self.is_recording:
+            self._stop_recording()
+        else:
+            self._start_recording()
 
-        filepath = self.audio_recorder.record(
-            duration=10
+
+    def _start_recording(self):
+
+        if self.is_recording:
+            return
+
+        print("🎤 Iniciando gravação...")
+
+        self.is_recording = True
+        self.recording_seconds = 0
+
+        self.audio_recorder.start()
+
+        self.record_button.configure(
+            text="⏹️ Parar (00:00)",
+            fg_color="#DC2626",
+            hover_color="#B91C1C"
         )
+
+        self._update_recording_timer()
+
+
+    def _stop_recording(self):
+
+        if not self.is_recording:
+            return
+
+        print("⏹️ Encerrando gravação...")
+
+        self.is_recording = False
+
+        if self.recording_timer is not None:
+            self.after_cancel(
+                self.recording_timer
+            )
+            self.recording_timer = None
+
+        self.record_button.configure(
+            text="⏳ Processando...",
+            state="disabled",
+            fg_color="#2563EB",
+            hover_color="#1D4ED8"
+        )
+
+        filepath = self.audio_recorder.stop()
+
+        if not filepath:
+
+            self.record_button.configure(
+                text="🎤 Gravar",
+                state="normal",
+                fg_color="#16A34A",
+                hover_color="#15803D"
+            )
+
+            return
 
         print("Áudio salvo:")
         print(filepath)
 
         print("Transcrevendo...")
 
-        text = self.speech_to_text_service.transcribe(
-            filepath
+        try:
+
+            text = self.speech_to_text_service.transcribe(
+                filepath
+            )
+
+            AudioCommandConfirmDialog(
+                self,
+                text,
+                on_confirm=self._handle_confirmed_command
+            )
+
+        except Exception as error:
+
+            self._show_error(
+                str(error)
+            )
+
+        finally:
+
+            self.record_button.configure(
+                text="🎤 Gravar",
+                state="normal",
+                fg_color="#16A34A",
+                hover_color="#15803D"
+            )
+
+
+    def _update_recording_timer(self):
+
+        if not self.is_recording:
+            return
+
+        minutes = self.recording_seconds // 60
+        seconds = self.recording_seconds % 60
+
+        self.record_button.configure(
+            text=(
+                f"⏹️ Parar "
+                f"({minutes:02d}:{seconds:02d})"
+            )
         )
 
-        AudioCommandConfirmDialog(
-            self,
-            text,
-            on_confirm=self._handle_confirmed_command
+        self.recording_seconds += 1
+
+        self.recording_timer = self.after(
+            1000,
+            self._update_recording_timer
         )
+
 
     def _handle_confirmed_command(
         self,
@@ -251,19 +355,25 @@ class AudioScreen(ctk.CTkFrame):
 
         if result["intent"] == "fabric_entry":
 
-            roll = self.fabric_roll_service.find_by_name(
-                result["fabric_name"]
+            rolls = (
+                self.fabric_roll_service
+                .find_similar_rolls(
+                    result["fabric_name"]
+                )
             )
 
-            if not roll:
-                print("Malha não encontrada")
-                return
+            location = (
+                result.get("to_location")
+                or "Depósito"
+            )
 
-            FabricVoiceConfirmDialog(
+            FabricVoiceSelectionDialog(
                 self,
-                roll=roll,
+                rolls=rolls,
                 quantity=result["quantity"],
-                on_confirm=self._execute_fabric_entry
+                fabric_name=result["fabric_name"],
+                location=location,
+                on_confirm=self._confirm_fabric_entry
             )
 
             return
@@ -343,24 +453,38 @@ class AudioScreen(ctk.CTkFrame):
     def _execute_fabric_entry(
         self,
         roll,
+        location,
         quantity
     ):
 
+        location = self._normalize_text(location)
+
+        target_found = False
+
         for loc in roll.locations:
 
-            if loc.location_name.lower() == "depósito":
+            if self._normalize_text(
+                loc.location_name
+            ) == location:
+
                 loc.quantity += quantity
+                target_found = True
+                break
+
+        if not target_found:
+
+            from app.models.fabric_roll_model import (
+                FabricRollLocation
+            )
+
+            roll.locations.append(
+                FabricRollLocation(
+                    location_name=location,
+                    quantity=quantity
+                )
+            )
 
         roll.total_quantity += quantity
-
-        print("======== FINAL ========")
-
-        for loc in roll.locations:
-
-            print(
-                loc.location_name,
-                loc.quantity
-            )
 
         self.fabric_roll_service.update_roll(
             roll
@@ -368,12 +492,14 @@ class AudioScreen(ctk.CTkFrame):
 
         self.fabric_roll_service.register_entry(
             roll.id,
-            "Depósito",
+            location,
             quantity
         )
 
-        print("Entrada realizada com sucesso")
-
+        print(
+            f"Entrada realizada: "
+            f"{quantity} unidades em {location}"
+        )
 
     def _execute_fabric_exit(
         self,
@@ -544,12 +670,35 @@ class AudioScreen(ctk.CTkFrame):
                     "client_name"
                 ),
 
+                "city": command.get(
+                    "city"
+                ),
+
                 "quantity": command.get(
                     "quantity"
                 ),
 
                 "model": command.get(
+                    "model"
+                ) or command.get(
                     "product_name"
+                ),
+
+                "order_type": command.get(
+                    "order_type"
+                ),
+
+                "fabric": command.get(
+                    "fabric"
+                ),
+
+                "deadline": command.get(
+                    "deadline"
+                ),
+
+                "items": command.get(
+                    "items",
+                    []
                 ),
 
                 "raw_text": command.get(
@@ -561,3 +710,19 @@ class AudioScreen(ctk.CTkFrame):
                 f"Pedido {order_id} criado"
             )
         )
+
+    def _confirm_fabric_entry(
+        self,
+        roll,
+        quantity,
+        location
+    ):
+
+        FabricVoiceConfirmDialog(
+            self,
+            roll=roll,
+            quantity=quantity,
+            location=location,
+            on_confirm=self._execute_fabric_entry
+        )
+

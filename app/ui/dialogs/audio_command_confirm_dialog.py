@@ -37,6 +37,7 @@ class AudioCommandConfirmDialog(ctk.CTkToplevel):
 
         self.textbox = ctk.CTkTextbox(
             self,
+            wrap="word",
             height=120
         )
 

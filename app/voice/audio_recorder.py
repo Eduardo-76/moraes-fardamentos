@@ -1,32 +1,66 @@
 import sounddevice as sd
 from scipy.io.wavfile import write
 
-from pathlib import Path
+from app.core.paths import RECORDINGS_DIR
 from datetime import datetime
+
+import numpy as np
 
 
 class AudioRecorder:
 
     def __init__(self):
-
         self.sample_rate = 44100
 
-    def record(self, duration=5):
+        self.stream = None
+        self.audio_chunks = []
+        self.is_recording = False
+
+    def start(self):
+        if self.is_recording:
+            return
 
         print("🎤 Gravando...")
 
-        audio = sd.rec(
-            int(duration * self.sample_rate),
+        self.audio_chunks = []
+        self.is_recording = True
+
+        self.stream = sd.InputStream(
             samplerate=self.sample_rate,
-            channels=1
+            channels=1,
+            callback=self._audio_callback
         )
 
-        sd.wait()
+        self.stream.start()
 
-        print("✅ Finalizado")
+    def _audio_callback(self, indata, frames, time, status):
+        if status:
+            print("⚠️", status)
 
-        # pasta
-        recordings_dir = Path("storage/recordings")
+        if self.is_recording:
+            self.audio_chunks.append(indata.copy())
+
+    def stop(self):
+        if not self.is_recording:
+            return None
+
+        print("⏹️ Parando gravação...")
+
+        self.is_recording = False
+
+        if self.stream:
+            self.stream.stop()
+            self.stream.close()
+            self.stream = None
+
+        if not self.audio_chunks:
+            print("⚠️ Nenhum áudio foi gravado.")
+            return None
+
+        audio = np.concatenate(self.audio_chunks, axis=0)
+
+        recordings_dir = RECORDINGS_DIR
+
         recordings_dir.mkdir(
             parents=True,
             exist_ok=True
@@ -45,4 +79,19 @@ class AudioRecorder:
             audio
         )
 
+        print("✅ Finalizado")
+        print(f"📁 Salvo em: {filepath}")
+
         return str(filepath)
+
+    def record(self, duration=5):
+        """
+        Mantém compatibilidade com o método antigo.
+        Grava por uma duração determinada.
+        """
+
+        self.start()
+
+        sd.sleep(int(duration * 1000))
+
+        return self.stop()

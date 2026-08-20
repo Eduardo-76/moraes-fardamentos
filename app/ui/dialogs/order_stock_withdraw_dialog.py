@@ -225,7 +225,11 @@ class OrderStockWithdrawDialog(ctk.CTkToplevel):
                 notes=self.notes_box.get("1.0", "end").strip(),
                 items=items,
             )
-            
+
+            self.stock_service.withdraw_order_stock(
+                self.order_id
+            )
+           
             self.order_service.mark_stock_withdrawn(self.order_id)
         except Exception as error:
             error_window = ctk.CTkToplevel(self)
