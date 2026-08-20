@@ -39,12 +39,16 @@ class OrderActions(ctk.CTkFrame):
         buttons = [
             ("Editar pedido", "edit"),
             ("Alterar status", "status"),
+
+            ("◀ Etapa", "previous_stage"),
+            ("Etapa ▶", "next_stage"),
+
             ("Simular reserva", "simulate"),
             ("Reservar estoque", "reserve"),
             (withdraw_text, "withdraw"),
             ("Cancelar reserva", "cancel_reservation"),
         ]
-
+        
         column = 0
 
         # =====================================================
