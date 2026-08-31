@@ -60,9 +60,19 @@ class OrderDetailScreen(ctk.CTkFrame):
 
     def _build_content(self) -> None:
         self.content_frame = ctk.CTkScrollableFrame(self)
-        self.content_frame.grid(row=1, column=0, sticky="nsew", padx=8, pady=8)
-        self.content_frame.grid_columnconfigure(0, weight=1)
-        self.content_frame.grid_columnconfigure(1, weight=1)
+
+        self.content_frame.grid(
+            row=1,
+            column=0,
+            sticky="nsew",
+            padx=8,
+            pady=8
+        )
+
+        self.content_frame.grid_columnconfigure(
+            0,
+            weight=1
+        )
 
         self._render_content()
 
@@ -78,43 +88,26 @@ class OrderDetailScreen(ctk.CTkFrame):
         order = self.order
 
         if not order:
+
             label = ctk.CTkLabel(
                 self.content_frame,
                 text="Pedido não encontrado.",
-                font=ctk.CTkFont(size=16),
+                font=ctk.CTkFont(size=16)
             )
-            label.grid(row=0, column=0, padx=16, pady=16, sticky="w")
+
+            label.grid(
+                row=0,
+                column=0,
+                padx=16,
+                pady=16,
+                sticky="w"
+            )
+
             return
-        
-        
-        summary_frame = ctk.CTkFrame(self.content_frame)
-        summary_frame.grid(row=0, column=0, sticky="ew", padx=8, pady=8)
-        summary_frame.grid_columnconfigure(0, weight=1)
 
-        title = ctk.CTkLabel(
-            summary_frame,
-            text=order.client_name or "Sem cliente",
-            font=ctk.CTkFont(size=24, weight="bold"),
-        )
-        title.grid(row=0, column=0, sticky="w", padx=16, pady=(16, 8))
-
-        command_text = self.order_service.build_order_command_text(self.order_id)
-
-        self.command_box = ctk.CTkTextbox(summary_frame, height=220)
-        self.command_box.grid(row=1, column=0, sticky="ew", padx=16, pady=(0, 12))
-        self.command_box.insert("1.0", command_text)
-        self.command_box.configure(state="disabled")
-
-        summary_buttons = ctk.CTkFrame(summary_frame, fg_color="transparent")
-        summary_buttons.grid(row=2, column=0, sticky="w", padx=16, pady=(0, 16))
-      
-        copy_command_button = ctk.CTkButton(
-            summary_buttons,
-            text="Copiar comanda",
-            command=lambda: self._copy_text(command_text),
-        )
-        copy_command_button.grid(row=0, column=0, padx=(0, 8), pady=0)
-        
+        # =====================================================
+        # RESUMO + COMANDA
+        # =====================================================
 
         summary = OrderSummary(
             self.content_frame,
@@ -124,40 +117,60 @@ class OrderDetailScreen(ctk.CTkFrame):
         summary.grid(
             row=0,
             column=0,
-            sticky="nsew",
-            padx=(8, 4),
+            sticky="ew",
+            padx=8,
             pady=8
+        )
+
+        command_text = (
+            self.order_service
+            .build_order_command_text(
+                self.order_id
+            )
         )
 
         command = OrderCommand(
             self.content_frame,
             command_text=command_text,
             callbacks={
-                "copy_command": lambda: self._copy_text(command_text)
+                "copy_command": lambda: self._copy_text(
+                    command_text
+                )
             }
         )
 
         command.grid(
-            row=0,
-            column=1,
-            sticky="nsew",
-            padx=(4, 8),
-            pady=8
+            row=1,
+            column=0,
+            sticky="ew",
+            padx=8,
+            pady=(0, 8)
         )
+
+        # =====================================================
+        # ÁUDIO
+        # =====================================================
 
         audio_callback = None
 
         if self.order.audio_id:
 
             audio_service = AudioService()
-            audio = audio_service.get_audio_by_id(self.order.audio_id)
+
+            audio = audio_service.get_audio_by_id(
+                self.order.audio_id
+            )
 
             if audio:
+
                 audio_callback = (
                     lambda p=audio.file_path:
                     audio_service.open_audio(p)
                 )
 
+        # =====================================================
+        # AÇÕES
+        # =====================================================
 
         actions = OrderActions(
             self.content_frame,
@@ -173,6 +186,7 @@ class OrderDetailScreen(ctk.CTkFrame):
                 "reserve": self._reserve_stock,
                 "cancel_reservation": self._cancel_reservation,
                 "withdraw": self._open_stock_withdraw_dialog,
+
                 "audio": audio_callback,
 
                 "preview_command": self._preview_command,
@@ -181,13 +195,16 @@ class OrderDetailScreen(ctk.CTkFrame):
         )
 
         actions.grid(
-            row=1,
+            row=2,
             column=0,
-            columnspan=2,
             sticky="ew",
             padx=8,
             pady=(0, 8)
         )
+
+        # =====================================================
+        # FLUXO DE PRODUÇÃO
+        # =====================================================
 
         flow = ProductionFlow(
             self.content_frame,
@@ -195,14 +212,16 @@ class OrderDetailScreen(ctk.CTkFrame):
         )
 
         flow.grid(
-            row=2,
+            row=3,
             column=0,
-            columnspan=2,
             sticky="ew",
             padx=8,
             pady=(0, 8)
         )
 
+        # =====================================================
+        # GERADOR DE MENSAGEM
+        # =====================================================
 
         message_component = MessageGenerator(
             self.content_frame,
@@ -212,9 +231,8 @@ class OrderDetailScreen(ctk.CTkFrame):
         )
 
         message_component.grid(
-            row=3,
+            row=4,
             column=0,
-            columnspan=2,
             sticky="ew",
             padx=8,
             pady=8

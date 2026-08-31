@@ -545,3 +545,34 @@ class StockService:
         self.order_repository.unmark_stock_reserved(
             order_id
         )
+
+    def withdraw_stock_item_direct(
+        self,
+        item_id: int,
+        quantity: int,
+    ) -> None:
+
+        if quantity <= 0:
+            raise ValueError(
+                "A quantidade da baixa deve ser maior que zero."
+            )
+
+        stock_item = self.repository.get_stock_item_by_id(item_id)
+
+        if not stock_item:
+            raise ValueError(
+                f"Item de estoque #{item_id} não encontrado."
+            )
+
+        if stock_item.quantity < quantity:
+            raise ValueError(
+                f"Estoque insuficiente para "
+                f"{stock_item.size} - {stock_item.gender}. "
+                f"Disponível: {stock_item.quantity}. "
+                f"Solicitado: {quantity}."
+            )
+
+        self.repository.withdraw_stock_item_direct(
+            item_id,
+            quantity,
+        )

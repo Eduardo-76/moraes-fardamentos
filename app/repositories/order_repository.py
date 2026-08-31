@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Optional
 
 from app.core.constants import ORDER_STAGES
@@ -84,17 +85,26 @@ class OrderRepository:
 
     def mark_stock_withdrawn(self, order_id: int) -> None:
         connection = get_connection()
+
         try:
             cursor = connection.cursor()
+
             cursor.execute(
                 """
                 UPDATE orders
-                SET stock_withdrawn = 1
+                SET
+                    stock_withdrawn = 1,
+                    withdrawn_at = ?
                 WHERE id = ?
                 """,
-                (order_id,),
+                (
+                    datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    order_id,
+                ),
             )
+
             connection.commit()
+
         finally:
             connection.close()
 
@@ -190,6 +200,7 @@ class OrderRepository:
                     o.paid,
                     o.stock_reserved,
                     o.stock_withdrawn,
+                    o.withdrawn_at,
                     o.notes,
                     o.current_stage,
                     o.created_at
@@ -220,6 +231,7 @@ class OrderRepository:
                     current_stage=row["current_stage"],
                     status=row["status"],
                     created_at=row["created_at"],
+                    withdrawn_at=row["withdrawn_at"],
                 )
                 for row in rows
             ]
@@ -228,6 +240,7 @@ class OrderRepository:
 
     def get_order_by_id(self, order_id: int) -> Optional[OrderModel]:
         connection = get_connection()
+
         try:
             cursor = connection.cursor()
 
@@ -238,7 +251,6 @@ class OrderRepository:
                     o.client_id,
                     o.audio_id,
                     c.name AS client_name,
-                    o.status,
                     c.phone AS client_phone,
                     c.city AS client_city,
                     o.model,
@@ -246,6 +258,7 @@ class OrderRepository:
                     o.type,
                     o.stock_reserved,
                     o.stock_withdrawn,
+                    o.withdrawn_at,
                     o.quantity,
                     o.deadline,
                     o.priority,
@@ -267,7 +280,10 @@ class OrderRepository:
             if not row:
                 return None
 
-            items = self.list_order_items(order_id, connection=connection)
+            items = self.list_order_items(
+                order_id,
+                connection=connection
+            )
 
             return OrderModel(
                 id=row["id"],
@@ -279,6 +295,7 @@ class OrderRepository:
                 model=row["model"],
                 stock_reserved=row["stock_reserved"],
                 stock_withdrawn=row["stock_withdrawn"],
+                withdrawn_at=row["withdrawn_at"],
                 fabric=row["fabric"],
                 type=row["type"],
                 quantity=row["quantity"],
@@ -292,6 +309,7 @@ class OrderRepository:
                 created_at=row["created_at"],
                 items=items,
             )
+
         finally:
             connection.close()
 
@@ -418,6 +436,7 @@ class OrderRepository:
 
     def update_order_stage(self, order_id: int, new_stage: str) -> None:
         connection = get_connection()
+
         try:
             cursor = connection.cursor()
 
@@ -430,35 +449,36 @@ class OrderRepository:
                 (new_stage, order_id),
             )
 
-            cursor.execute(
-                """
-                UPDATE order_stages
-                SET status = 'Concluído'
-                WHERE order_id = ?
-                  AND stage_name = ?
-                """,
-                (order_id, new_stage),
-            )
+            # Etapas anteriores à atual ficam concluídas.
+            current_index = ORDER_STAGES.index(new_stage)
 
-            cursor.execute(
-                """
-                UPDATE order_stages
-                SET status = 'Em produção'
-                WHERE order_id = ?
-                  AND id = (
-                      SELECT id
-                      FROM order_stages
-                      WHERE order_id = ?
-                        AND stage_name != ?
-                        AND status = 'Em espera'
-                      ORDER BY id ASC
-                      LIMIT 1
-                  )
-                """,
-                (order_id, order_id, new_stage),
-            )
+            for index, stage_name in enumerate(ORDER_STAGES):
+
+                if index < current_index:
+                    status = "Concluído"
+
+                elif index == current_index:
+                    status = "Em produção"
+
+                else:
+                    status = "Em espera"
+
+                cursor.execute(
+                    """
+                    UPDATE order_stages
+                    SET status = ?
+                    WHERE order_id = ?
+                    AND stage_name = ?
+                    """,
+                    (
+                        status,
+                        order_id,
+                        stage_name,
+                    ),
+                )
 
             connection.commit()
+
         finally:
             connection.close()
 
@@ -643,25 +663,12 @@ class OrderRepository:
         stage: str
     ) -> None:
 
-        connection = get_connection()
-
-        try:
-
-            cursor = connection.cursor()
-
-            cursor.execute(
-                """
-                UPDATE orders
-                SET current_stage = ?
-                WHERE id = ?
-                """,
-                (
-                    stage,
-                    order_id
-                )
+        if stage not in ORDER_STAGES:
+            raise ValueError(
+                "Etapa de produção inválida."
             )
 
-            connection.commit()
-
-        finally:
-            connection.close()
+        self.update_order_stage(
+            order_id,
+            stage,
+        )

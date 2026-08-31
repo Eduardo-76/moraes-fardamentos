@@ -1,4 +1,5 @@
 import customtkinter as ctk
+
 from app.core.constants import ORDER_STAGES
 
 
@@ -37,6 +38,10 @@ class ProductionFlow(ctk.CTkFrame):
             weight=1
         )
 
+        # =====================================================
+        # TÍTULO
+        # =====================================================
+
         title = ctk.CTkLabel(
             self,
             text="Fluxo de Produção",
@@ -54,6 +59,10 @@ class ProductionFlow(ctk.CTkFrame):
             pady=(10, 15)
         )
 
+        # =====================================================
+        # ÁREA DO FLUXO
+        # =====================================================
+
         self.content = ctk.CTkFrame(
             self
         )
@@ -66,29 +75,19 @@ class ProductionFlow(ctk.CTkFrame):
             pady=(0, 10)
         )
 
-        self.content.grid_columnconfigure(
-            0,
-            weight=1
-        )
-
-        stages = ORDER_STAGES
-
-        for index in range(len(stages)):
+        # Quatro colunas.
+        # Os estágios serão distribuídos em duas linhas.
+        for column in range(4):
             self.content.grid_columnconfigure(
-                index,
+                column,
                 weight=1
-            )       
+            )
 
-        for index, stage in enumerate(stages):
-            "Entrega"
+        # =====================================================
+        # ESTÁGIOS
+        # =====================================================
 
-        for index in range(len(stages)):
-            self.content.grid_columnconfigure(
-                index,
-                weight=1
-            )       
-
-        for index, stage in enumerate(stages):
+        for index, stage in enumerate(ORDER_STAGES):
 
             state = self._get_stage_state(stage)
 
@@ -101,18 +100,24 @@ class ProductionFlow(ctk.CTkFrame):
             else:
                 prefix = "○"
 
+            row = index // 4
+            column = index % 4
+
             label = ctk.CTkLabel(
                 self.content,
                 text=f"{prefix} {stage}",
                 font=ctk.CTkFont(
                     size=15,
                     weight="bold"
-                )
+                ),
+                wraplength=160,
+                justify="center"
             )
 
             label.grid(
-                row=0,
-                column=index,
-                padx=15,
-                pady=15
-            )        
+                row=row,
+                column=column,
+                padx=6,
+                pady=10,
+                sticky="ew"
+            )

@@ -21,6 +21,12 @@ __pycache__/
 
 build/
 dist/
+release/
+release_installer/
+
+# Mantemos o .spec no Git.
+# Ele é necessário para reproduzir o build.
+
 
 # Mantemos o .spec no Git.
 # Ele é necessário para reproduzir o build.
@@ -58,3 +64,6 @@ storage/exports/
 # =========================================================
 
 *.log
+
+release/
+release_installer/

@@ -92,6 +92,7 @@ def create_tables(connection: Connection) -> None:
             total_value REAL,
             paid INTEGER DEFAULT 0,
             stock_withdrawn INTEGER DEFAULT 0,
+            withdrawn_at TEXT,
             notes TEXT,
             current_stage TEXT DEFAULT 'Recepção',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -100,6 +101,7 @@ def create_tables(connection: Connection) -> None:
         )
         """
     )
+    
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS order_items (
@@ -266,8 +268,31 @@ def seed_metadata(connection: Connection) -> None:
 
 def initialize_database() -> None:
     connection = get_connection()
+
     try:
         create_tables(connection)
+        ensure_orders_columns(connection)
         seed_metadata(connection)
+
     finally:
         connection.close()
+
+def ensure_orders_columns(connection: Connection) -> None:
+    cursor = connection.cursor()
+
+    cursor.execute("PRAGMA table_info(orders)")
+
+    columns = {
+        row["name"]
+        for row in cursor.fetchall()
+    }
+
+    if "withdrawn_at" not in columns:
+        cursor.execute(
+            """
+            ALTER TABLE orders
+            ADD COLUMN withdrawn_at TEXT
+            """
+        )
+
+    connection.commit()

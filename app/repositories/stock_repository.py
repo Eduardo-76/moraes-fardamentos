@@ -473,3 +473,37 @@ class StockRepository:
 
         finally:
             connection.close()
+
+    def withdraw_stock_item_direct(
+        self,
+        item_id: int,
+        quantity: int,
+    ) -> None:
+        connection = get_connection()
+
+        try:
+            cursor = connection.cursor()
+
+            cursor.execute(
+                """
+                UPDATE stock_entry_items
+                SET quantity = quantity - ?
+                WHERE id = ?
+                AND quantity >= ?
+                """,
+                (
+                    quantity,
+                    item_id,
+                    quantity,
+                ),
+            )
+
+            if cursor.rowcount == 0:
+                raise ValueError(
+                    "Quantidade insuficiente ou item de estoque não encontrado."
+                )
+
+            connection.commit()
+
+        finally:
+            connection.close()

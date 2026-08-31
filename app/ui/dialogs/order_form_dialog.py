@@ -1,4 +1,7 @@
 import customtkinter as ctk
+import calendar
+from datetime import datetime
+import tkinter as tk
 
 from app.core.constants import PRIORITIES
 from app.core.utils import (
@@ -148,7 +151,11 @@ class OrderFormDialog(ctk.CTkToplevel):
         self.model_entry = self._create_entry("Modelo", 1, 1)
         self.type_entry = self._create_entry("Tipo", 2, 0)
         self.fabric_entry = self._create_entry("Tecido", 2, 1)
-        self.deadline_entry = self._create_entry("Prazo (YYYY-MM-DD)", 3, 1)
+        self.deadline_entry = self._create_date_entry(
+            "Data de entrega",
+            3,
+            1
+        )        
         self.total_value_entry = self._create_entry("Valor total", 4, 0)
 
         priority_frame = ctk.CTkFrame(self.body)
@@ -329,6 +336,373 @@ class OrderFormDialog(ctk.CTkToplevel):
         entry.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 12))
         return entry
 
+    def _create_date_entry(
+        self,
+        label_text: str,
+        row: int,
+        column: int
+    ):
+        frame = ctk.CTkFrame(self.body)
+
+        frame.grid(
+            row=row,
+            column=column,
+            sticky="ew",
+            padx=8,
+            pady=8
+        )
+
+        frame.grid_columnconfigure(
+            0,
+            weight=1
+        )
+
+        label = ctk.CTkLabel(
+            frame,
+            text=label_text,
+            font=ctk.CTkFont(
+                size=14,
+                weight="bold"
+            )
+        )
+
+        label.grid(
+            row=0,
+            column=0,
+            columnspan=2,
+            sticky="w",
+            padx=12,
+            pady=(12, 6)
+        )
+
+        entry = ctk.CTkEntry(
+            frame,
+            placeholder_text="DD/MM/AAAA"
+        )
+
+        entry.grid(
+            row=1,
+            column=0,
+            sticky="ew",
+            padx=(12, 4),
+            pady=(0, 12)
+        )
+
+        calendar_button = ctk.CTkButton(
+            frame,
+            text="📅",
+            width=45,
+            height=32,
+            command=lambda: self._open_calendar(entry)
+        )
+
+        calendar_button.grid(
+            row=1,
+            column=1,
+            padx=(4, 12),
+            pady=(0, 12)
+        )
+
+        return entry
+
+    def _open_calendar(self, entry):
+
+        today = datetime.today()
+
+        state = {
+            "year": today.year,
+            "month": today.month
+        }
+
+        calendar_window = ctk.CTkToplevel(self)
+
+        calendar_window.title(
+            "Selecionar data"
+        )
+
+        calendar_window.geometry(
+            "430x470"
+        )
+
+        calendar_window.resizable(
+            False,
+            False
+        )
+
+        calendar_window.transient(self)
+        calendar_window.grab_set()
+
+        # =====================================================
+        # CABEÇALHO
+        # =====================================================
+
+        header_frame = ctk.CTkFrame(
+            calendar_window
+        )
+
+        header_frame.pack(
+            fill="x",
+            padx=15,
+            pady=(15, 5)
+        )
+
+        header_frame.grid_columnconfigure(
+            1,
+            weight=1
+        )
+
+        previous_button = ctk.CTkButton(
+            header_frame,
+            text="◀",
+            width=45,
+            command=lambda: previous_month()
+        )
+
+        previous_button.grid(
+            row=0,
+            column=0,
+            padx=5,
+            pady=8
+        )
+
+        title_label = ctk.CTkLabel(
+            header_frame,
+            text="",
+            font=ctk.CTkFont(
+                size=18,
+                weight="bold"
+            )
+        )
+
+        title_label.grid(
+            row=0,
+            column=1,
+            padx=5,
+            pady=8
+        )
+
+        next_button = ctk.CTkButton(
+            header_frame,
+            text="▶",
+            width=45,
+            command=lambda: next_month()
+        )
+
+        next_button.grid(
+            row=0,
+            column=2,
+            padx=5,
+            pady=8
+        )
+
+        # =====================================================
+        # ÁREA DO CALENDÁRIO
+        # =====================================================
+
+        calendar_frame = ctk.CTkFrame(
+            calendar_window
+        )
+
+        calendar_frame.pack(
+            fill="both",
+            expand=True,
+            padx=15,
+            pady=5
+        )
+
+        for column in range(7):
+
+            calendar_frame.grid_columnconfigure(
+                column,
+                weight=1
+            )
+
+        # =====================================================
+        # SELECIONAR DATA
+        # =====================================================
+
+        def select_day(day):
+
+            selected = datetime(
+                state["year"],
+                state["month"],
+                day
+            )
+
+            entry.delete(
+                0,
+                "end"
+            )
+
+            entry.insert(
+                0,
+                selected.strftime(
+                    "%d/%m/%Y"
+                )
+            )
+
+            calendar_window.destroy()
+
+        # =====================================================
+        # MÊS ANTERIOR
+        # =====================================================
+
+        def previous_month():
+
+            if state["month"] == 1:
+
+                state["month"] = 12
+                state["year"] -= 1
+
+            else:
+
+                state["month"] -= 1
+
+            refresh_calendar()
+
+        # =====================================================
+        # PRÓXIMO MÊS
+        # =====================================================
+
+        def next_month():
+
+            if state["month"] == 12:
+
+                state["month"] = 1
+                state["year"] += 1
+
+            else:
+
+                state["month"] += 1
+
+            refresh_calendar()
+
+        # =====================================================
+        # ATUALIZAR CALENDÁRIO
+        # =====================================================
+
+        def refresh_calendar():
+
+            for widget in calendar_frame.winfo_children():
+
+                widget.destroy()
+
+            month_names = [
+                "",
+                "Janeiro",
+                "Fevereiro",
+                "Março",
+                "Abril",
+                "Maio",
+                "Junho",
+                "Julho",
+                "Agosto",
+                "Setembro",
+                "Outubro",
+                "Novembro",
+                "Dezembro"
+            ]
+
+            title_label.configure(
+                text=(
+                    f"{month_names[state['month']]}"
+                    f" {state['year']}"
+                )
+            )
+
+            weekdays = [
+                "Seg",
+                "Ter",
+                "Qua",
+                "Qui",
+                "Sex",
+                "Sáb",
+                "Dom"
+            ]
+
+            # -------------------------------------------------
+            # DIAS DA SEMANA
+            # -------------------------------------------------
+
+            for column, weekday in enumerate(
+                weekdays
+            ):
+
+                label = ctk.CTkLabel(
+                    calendar_frame,
+                    text=weekday,
+                    font=ctk.CTkFont(
+                        size=12,
+                        weight="bold"
+                    )
+                )
+
+                label.grid(
+                    row=0,
+                    column=column,
+                    padx=3,
+                    pady=(8, 5)
+                )
+
+            # -------------------------------------------------
+            # DIAS DO MÊS
+            # -------------------------------------------------
+
+            month_calendar = calendar.monthcalendar(
+                state["year"],
+                state["month"]
+            )
+
+            for row_index, week in enumerate(
+                month_calendar,
+                start=1
+            ):
+
+                for column_index, day in enumerate(
+                    week
+                ):
+
+                    if day == 0:
+                        continue
+
+                    button = ctk.CTkButton(
+                        calendar_frame,
+                        text=str(day),
+                        width=42,
+                        height=34,
+                        command=lambda d=day: select_day(d)
+                    )
+
+                    button.grid(
+                        row=row_index,
+                        column=column_index,
+                        padx=3,
+                        pady=3,
+                        sticky="ew"
+                    )
+
+        # =====================================================
+        # CANCELAR
+        # =====================================================
+
+        cancel_button = ctk.CTkButton(
+            calendar_window,
+            text="Cancelar",
+            command=calendar_window.destroy,
+            fg_color="#374151",
+            hover_color="#1F2937"
+        )
+
+        cancel_button.pack(
+            pady=(5, 15)
+        )
+
+        # =====================================================
+        # ABRIR NO MÊS ATUAL
+        # =====================================================
+
+        refresh_calendar()
+
     def _load_order_data(self) -> None:
         if not self.order_id:
             return
@@ -349,8 +723,25 @@ class OrderFormDialog(ctk.CTkToplevel):
             self.type_entry.insert(0, order.type)
         if order.fabric:
             self.fabric_entry.insert(0, order.fabric)
+
         if order.deadline:
-            self.deadline_entry.insert(0, order.deadline)
+            try:
+                deadline = datetime.strptime(
+                    order.deadline,
+                    "%Y-%m-%d"
+                )
+
+                self.deadline_entry.insert(
+                    0,
+                    deadline.strftime("%d/%m/%Y")
+                )
+
+            except ValueError:
+                self.deadline_entry.insert(
+                    0,
+                    order.deadline
+                )
+
         if order.total_value is not None:
             self.total_value_entry.insert(0, str(order.total_value))
         if order.priority:
@@ -403,6 +794,25 @@ class OrderFormDialog(ctk.CTkToplevel):
             self.total_value_entry.get()
             )
 
+        deadline_text = self.deadline_entry.get().strip()
+
+        deadline = ""
+
+        if deadline_text:
+            try:
+                deadline_date = datetime.strptime(
+                    deadline_text,
+                    "%d/%m/%Y"
+                )
+
+                deadline = deadline_date.strftime(
+                    "%Y-%m-%d"
+                )
+
+            except ValueError:
+                deadline = deadline_text
+        
+
         payload = {
             "client_name": normalize_name(self.client_entry.get()),
             "audio_id": self.initial_data.get("audio_id"),
@@ -412,7 +822,7 @@ class OrderFormDialog(ctk.CTkToplevel):
             "fabric": normalize_text(self.fabric_entry.get()),
             "order_type": normalize_text(self.type_entry.get()),
             "quantity": total_quantity,
-            "deadline": normalize_text(self.deadline_entry.get()),
+            "deadline": normalize_text(deadline),
             "priority": self.priority_option.get(),
             "total_value": total_value,
             "notes": normalize_text(self.notes_box.get("1.0", "end")),

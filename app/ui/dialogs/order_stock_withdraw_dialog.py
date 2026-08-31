@@ -1,3 +1,5 @@
+from tkinter import messagebox
+
 import customtkinter as ctk
 
 from app.services.order_service import OrderService
@@ -191,6 +193,21 @@ class OrderStockWithdrawDialog(ctk.CTkToplevel):
         save_button.grid(row=0, column=1, padx=12, pady=12, sticky="e")
 
     def _save(self) -> None:
+
+        if not self.order:
+            messagebox.showerror(
+                "Erro",
+                "Pedido não encontrado."
+            )
+            return
+
+        if self.order.stock_withdrawn:
+            messagebox.showwarning(
+                "Baixa já realizada",
+                "O estoque deste pedido já foi baixado."
+            )
+            return
+
         if not self.stock_options:
             return
 
@@ -226,11 +243,8 @@ class OrderStockWithdrawDialog(ctk.CTkToplevel):
                 items=items,
             )
 
-            self.stock_service.withdraw_order_stock(
-                self.order_id
-            )
-           
             self.order_service.mark_stock_withdrawn(self.order_id)
+           
         except Exception as error:
             error_window = ctk.CTkToplevel(self)
             error_window.title("Erro na baixa")

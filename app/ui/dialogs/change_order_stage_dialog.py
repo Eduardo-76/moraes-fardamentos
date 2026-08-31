@@ -78,13 +78,63 @@ class ChangeOrderStageDialog(ctk.CTkToplevel):
             self.order.current_stage
         )
 
+        buttons_frame = ctk.CTkFrame(self)
+        buttons_frame.pack(
+            fill="x",
+            padx=30,
+            pady=25
+        )
+
+        cancel_button = ctk.CTkButton(
+            buttons_frame,
+            text="Cancelar",
+            command=self.destroy,
+            fg_color="#374151",
+            hover_color="#1F2937",
+        )
+
+        cancel_button.pack(
+            side="left"
+        )
+
+        save_button = ctk.CTkButton(
+            buttons_frame,
+            text="Salvar alteração",
+            command=self._save,
+        )
+
+        save_button.pack(
+            side="right"
+        )
+
     def _save(self):
+
+        new_stage = self.stage_option.get()
+
+        if new_stage == self.order.current_stage:
+            messagebox.showinfo(
+                "Nenhuma alteração",
+                "O pedido já está nesta etapa."
+            )
+            return
+
+        confirmed = messagebox.askyesno(
+            "Confirmar alteração",
+            (
+                f"Alterar o pedido #{self.order.id}?\n\n"
+                f"Etapa atual: {self.order.current_stage}\n"
+                f"Nova etapa: {new_stage}"
+            )
+        )
+
+        if not confirmed:
+            return
 
         try:
 
             self.service.update_stage(
                 self.order.id,
-                self.stage_option.get()
+                new_stage
             )
 
             if callable(self.on_save):

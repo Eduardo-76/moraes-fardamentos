@@ -77,6 +77,16 @@ class OrderService:
         return self.repository.list_orders()
 
     def mark_stock_withdrawn(self, order_id: int) -> None:
+        order = self.get_order_by_id(order_id)
+
+        if not order:
+            raise ValueError("Pedido não encontrado.")
+
+        if order.stock_withdrawn:
+            raise ValueError(
+                "O estoque deste pedido já foi baixado."
+            )
+
         self.repository.mark_stock_withdrawn(order_id)
 
     def get_order_by_id(self, order_id: int) -> Optional[OrderModel]:
@@ -87,33 +97,49 @@ class OrderService:
 
     def move_to_next_stage(self, order_id: int) -> None:
         order = self.get_order_by_id(order_id)
-        if not order or not order.current_stage:
+
+        if not order:
             return
 
-        if order.current_stage not in ORDER_STAGES:
+        current_stage = order.current_stage or "Recepção"
+
+        if current_stage not in ORDER_STAGES:
             return
 
-        current_index = ORDER_STAGES.index(order.current_stage)
+        current_index = ORDER_STAGES.index(current_stage)
+
         if current_index >= len(ORDER_STAGES) - 1:
             return
 
         new_stage = ORDER_STAGES[current_index + 1]
-        self.repository.update_order_stage(order_id, new_stage)
+
+        self.move_order(
+            order_id=order_id,
+            new_stage=new_stage,
+        )
 
     def move_to_previous_stage(self, order_id: int) -> None:
         order = self.get_order_by_id(order_id)
-        if not order or not order.current_stage:
+
+        if not order:
             return
 
-        if order.current_stage not in ORDER_STAGES:
+        current_stage = order.current_stage or "Recepção"
+
+        if current_stage not in ORDER_STAGES:
             return
 
-        current_index = ORDER_STAGES.index(order.current_stage)
+        current_index = ORDER_STAGES.index(current_stage)
+
         if current_index <= 0:
             return
 
         new_stage = ORDER_STAGES[current_index - 1]
-        self.repository.update_order_stage(order_id, new_stage)
+
+        self.move_order(
+            order_id=order_id,
+            new_stage=new_stage,
+        )
 
     def save_stage_notes(self, order_id: int, stage_name: str, notes: str) -> None:
         self.repository.update_stage_notes(order_id, stage_name, notes)
@@ -405,6 +431,12 @@ class OrderService:
         items: Optional[list[dict]] = None,
         audio_id: Optional[int] = None,
     ) -> None:
+
+        existing_order = self.get_order_by_id(order_id)
+
+        if not existing_order:
+            raise ValueError("Pedido não encontrado.")
+
         client_id = self.repository.create_client_if_needed(
             client_name=client_name,
             phone=client_phone,
@@ -412,6 +444,7 @@ class OrderService:
         )
 
         order_items: list[OrderItemModel] = []
+
         for item in items or []:
             order_items.append(
                 OrderItemModel(
@@ -436,7 +469,12 @@ class OrderService:
             priority=priority,
             total_value=total_value,
             notes=notes,
-            current_stage="Recepção",
+
+            # Preserva o estado atual do pedido
+            current_stage=existing_order.current_stage,
+            status=existing_order.status,
+            stock_withdrawn=existing_order.stock_withdrawn,
+
             items=order_items,
         )
 
@@ -507,9 +545,47 @@ class OrderService:
         self,
         order_id: int,
         new_stage: str,
-        reason: str | None = None
-    ):
-        pass
+        reason: str | None = None,
+    ) -> None:
+
+        order = self.get_order_by_id(order_id)
+
+        if not order:
+            raise ValueError("Pedido não encontrado.")
+
+        if new_stage not in ORDER_STAGES:
+            raise ValueError("Etapa de produção inválida.")
+
+        current_stage = order.current_stage or "Recepção"
+
+        if current_stage not in ORDER_STAGES:
+            raise ValueError(
+                f"Etapa atual inválida: {current_stage}"
+            )
+
+        if current_stage == new_stage:
+            return
+
+        current_index = ORDER_STAGES.index(current_stage)
+        new_index = ORDER_STAGES.index(new_stage)
+
+        # Só permite avançar ou voltar uma etapa por vez.
+        if abs(new_index - current_index) != 1:
+            raise ValueError(
+                "Não é permitido pular etapas de produção."
+            )
+
+        self.repository.update_order_stage(
+            order_id,
+            new_stage,
+        )
+
+        if reason:
+            self.repository.update_stage_notes(
+                order_id,
+                new_stage,
+                reason,
+            )
 
     def get_print_job(
         self,

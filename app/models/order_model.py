@@ -13,6 +13,7 @@ class OrderItemModel:
 
 @dataclass
 class OrderModel:
+
     id: Optional[int] = None
     client_id: Optional[int] = None
     client_name: Optional[str] = None
@@ -28,6 +29,7 @@ class OrderModel:
     paid: int = 0
     stock_reserved: int = 0
     stock_withdrawn: int = 0
+    withdrawn_at: Optional[str] = None
     notes: Optional[str] = None
     current_stage: str = "Recepção"
     status: str = "Em espera"

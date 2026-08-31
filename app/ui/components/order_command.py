@@ -23,6 +23,10 @@ class OrderCommand(ctk.CTkFrame):
             weight=1
         )
 
+        # =====================================================
+        # TÍTULO
+        # =====================================================
+
         title = ctk.CTkLabel(
             self,
             text="Comanda",
@@ -37,20 +41,24 @@ class OrderCommand(ctk.CTkFrame):
             column=0,
             sticky="w",
             padx=12,
-            pady=(12,10)
+            pady=(10, 6)
         )
+
+        # =====================================================
+        # ÁREA DA COMANDA
+        # =====================================================
 
         self.command_box = ctk.CTkTextbox(
             self,
-            height=220
+            height=160
         )
 
         self.command_box.grid(
             row=1,
             column=0,
-            sticky="nsew",
+            sticky="ew",
             padx=12,
-            pady=(0,12)
+            pady=(0, 8)
         )
 
         self.command_box.insert(
@@ -62,10 +70,15 @@ class OrderCommand(ctk.CTkFrame):
             state="disabled"
         )
 
+        # =====================================================
+        # COPIAR COMANDA
+        # =====================================================
+
         copy_button = ctk.CTkButton(
             self,
             text="Copiar Comanda",
-            command=self.callbacks["copy_command"]
+            command=self.callbacks["copy_command"],
+            height=34
         )
 
         copy_button.grid(
@@ -73,5 +86,5 @@ class OrderCommand(ctk.CTkFrame):
             column=0,
             sticky="w",
             padx=12,
-            pady=(0,12)
+            pady=(0, 10)
         )
