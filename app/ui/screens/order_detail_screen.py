@@ -10,9 +10,6 @@ from app.ui.dialogs.select_stock_dialog import SelectStockDialog
 from app.ui.dialogs.change_order_status_dialog import (
     ChangeOrderStatusDialog
 )
-from app.ui.dialogs.change_order_status_dialog import (
-    ChangeOrderStatusDialog
-)
 from app.ui.components.order_summary import OrderSummary
 from app.ui.components.order_command import OrderCommand
 from tkinter import messagebox
@@ -220,6 +217,12 @@ class OrderDetailScreen(ctk.CTkFrame):
         )
 
         # =====================================================
+        # DETALHES DAS ETAPAS
+        # =====================================================
+
+        self._build_stage_details()
+
+        # =====================================================
         # GERADOR DE MENSAGEM
         # =====================================================
 
@@ -231,27 +234,166 @@ class OrderDetailScreen(ctk.CTkFrame):
         )
 
         message_component.grid(
-            row=4,
+            row=5,
             column=0,
             sticky="ew",
             padx=8,
             pady=8
         )
 
-    def _build_production_flow(self):
-        pass
+    def _build_stage_details(self) -> None:
+        stages = self.order_service.list_order_stages(
+            self.order_id
+        )
 
+        frame = ctk.CTkFrame(self.content_frame)
 
-    def _create_stage_indicator(self):
-        pass
+        frame.grid(
+            row=4,
+            column=0,
+            sticky="ew",
+            padx=8,
+            pady=(0, 8)
+        )
+
+        frame.grid_columnconfigure(
+            0,
+            weight=1
+        )
+
+        title = ctk.CTkLabel(
+            frame,
+            text="Detalhes das etapas",
+            font=ctk.CTkFont(
+                size=20,
+                weight="bold"
+            )
+        )
+
+        title.grid(
+            row=0,
+            column=0,
+            sticky="w",
+            padx=16,
+            pady=(14, 10)
+        )
+
+        if not stages:
+            label = ctk.CTkLabel(
+                frame,
+                text="Nenhuma informação de etapa disponível."
+            )
+
+            label.grid(
+                row=1,
+                column=0,
+                sticky="w",
+                padx=16,
+                pady=(0, 14)
+            )
+
+            return
+
+        for index, stage in enumerate(stages):
+
+            stage_frame = ctk.CTkFrame(
+                frame
+            )
+
+            stage_frame.grid(
+                row=index + 1,
+                column=0,
+                sticky="ew",
+                padx=12,
+                pady=5
+            )
+
+            stage_frame.grid_columnconfigure(
+                0,
+                weight=1
+            )
+
+            stage_name = stage.get(
+                "stage_name"
+            ) or "Etapa"
+
+            status = stage.get(
+                "status"
+            ) or "Em espera"
+
+            started_at = stage.get(
+                "started_at"
+            )
+
+            finished_at = stage.get(
+                "finished_at"
+            )
+
+            status_text = f"Status: {status}"
+
+            if started_at:
+                status_text += f"\nInício: {started_at}"
+
+            if finished_at:
+                status_text += f"\nConclusão: {finished_at}"
+
+            stage_label = ctk.CTkLabel(
+                stage_frame,
+                text=stage_name,
+                font=ctk.CTkFont(
+                    size=15,
+                    weight="bold"
+                )
+            )
+
+            stage_label.grid(
+                row=0,
+                column=0,
+                sticky="w",
+                padx=12,
+                pady=(10, 2)
+            )
+
+            info_label = ctk.CTkLabel(
+                stage_frame,
+                text=status_text,
+                justify="left",
+                font=ctk.CTkFont(
+                    size=13
+                )
+            )
+
+            info_label.grid(
+                row=1,
+                column=0,
+                sticky="w",
+                padx=12,
+                pady=(0, 10)
+            )
+
 
     def _move_next(self) -> None:
-        self.order_service.move_to_next_stage(self.order_id)
-        self._render_content()
+        try:
+            self.order_service.move_to_next_stage(self.order_id)
+            self._render_content()
+
+        except Exception as exc:
+            messagebox.showerror(
+                "Erro ao avançar etapa",
+                str(exc)
+            )
+
 
     def _move_previous(self) -> None:
-        self.order_service.move_to_previous_stage(self.order_id)
-        self._render_content()
+        try:
+            self.order_service.move_to_previous_stage(self.order_id)
+            self._render_content()
+
+        except Exception as exc:
+            messagebox.showerror(
+                "Erro ao voltar etapa",
+                str(exc)
+            )
 
     def _open_edit_dialog(self) -> None:
         OrderFormDialog(

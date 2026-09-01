@@ -65,7 +65,13 @@ class OrderRepository:
                     ),
                 )
 
-            for stage_name in ORDER_STAGES:
+            for index, stage_name in enumerate(ORDER_STAGES):
+
+                if index == 0:
+                    status = "Em produção"
+                else:
+                    status = "Em espera"
+
                 cursor.execute(
                     """
                     INSERT INTO order_stages (order_id, stage_name, status)
@@ -74,7 +80,7 @@ class OrderRepository:
                     (
                         order_id,
                         stage_name,
-                        "Concluído" if stage_name == "Recepção" else "Em espera",
+                        status,
                     ),
                 )
 
@@ -435,10 +441,43 @@ class OrderRepository:
             connection.close()
 
     def update_order_stage(self, order_id: int, new_stage: str) -> None:
+        if new_stage not in ORDER_STAGES:
+            raise ValueError("Etapa de produção inválida.")
+
         connection = get_connection()
 
         try:
             cursor = connection.cursor()
+
+            # Busca a etapa atual do pedido
+            cursor.execute(
+                """
+                SELECT current_stage
+                FROM orders
+                WHERE id = ?
+                """,
+                (order_id,),
+            )
+
+            order_row = cursor.fetchone()
+
+            if not order_row:
+                raise ValueError("Pedido não encontrado.")
+
+            old_stage = order_row["current_stage"] or "Recepção"
+
+            # Se tentar mover para a mesma etapa, não faz nada.
+            if old_stage == new_stage:
+                return
+
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+            old_index = ORDER_STAGES.index(old_stage)
+            new_index = ORDER_STAGES.index(new_stage)
+
+            # =====================================================
+            # ATUALIZA O PEDIDO
+            # =====================================================
 
             cursor.execute(
                 """
@@ -446,38 +485,119 @@ class OrderRepository:
                 SET current_stage = ?
                 WHERE id = ?
                 """,
-                (new_stage, order_id),
+                (
+                    new_stage,
+                    order_id,
+                ),
             )
 
-            # Etapas anteriores à atual ficam concluídas.
-            current_index = ORDER_STAGES.index(new_stage)
+            # =====================================================
+            # MOVIMENTO PARA FRENTE
+            # =====================================================
 
-            for index, stage_name in enumerate(ORDER_STAGES):
+            if new_index > old_index:
 
-                if index < current_index:
-                    status = "Concluído"
-
-                elif index == current_index:
-                    status = "Em produção"
-
-                else:
-                    status = "Em espera"
-
+                # Finaliza a etapa que estava em produção
                 cursor.execute(
                     """
                     UPDATE order_stages
-                    SET status = ?
+                    SET
+                        status = 'Concluído',
+                        finished_at = ?
                     WHERE order_id = ?
                     AND stage_name = ?
                     """,
                     (
-                        status,
+                        now,
                         order_id,
-                        stage_name,
+                        old_stage,
                     ),
                 )
 
+                # Inicia a nova etapa
+                cursor.execute(
+                    """
+                    UPDATE order_stages
+                    SET
+                        status = 'Em produção',
+                        started_at = ?
+                    WHERE order_id = ?
+                    AND stage_name = ?
+                    """,
+                    (
+                        now,
+                        order_id,
+                        new_stage,
+                    ),
+                )
+
+            # =====================================================
+            # MOVIMENTO PARA TRÁS
+            # =====================================================
+
+            else:
+
+                # A etapa para a qual voltamos passa a ser a etapa atual.
+                # Limpamos o término anterior porque ela voltou a produzir.
+                cursor.execute(
+                    """
+                    UPDATE order_stages
+                    SET
+                        status = 'Em produção',
+                        started_at = ?,
+                        finished_at = NULL
+                    WHERE order_id = ?
+                    AND stage_name = ?
+                    """,
+                    (
+                        now,
+                        order_id,
+                        new_stage,
+                    ),
+                )
+
+            # =====================================================
+            # ATUALIZA AS DEMAIS ETAPAS
+            # =====================================================
+
+            for index, stage_name in enumerate(ORDER_STAGES):
+
+                if stage_name == new_stage:
+                    continue
+
+                if index < new_index:
+                    cursor.execute(
+                        """
+                        UPDATE order_stages
+                        SET status = 'Concluído'
+                        WHERE order_id = ?
+                        AND stage_name = ?
+                        """,
+                        (
+                            order_id,
+                            stage_name,
+                        ),
+                    )
+
+                else:
+                    cursor.execute(
+                        """
+                        UPDATE order_stages
+                        SET status = 'Em espera'
+                        WHERE order_id = ?
+                        AND stage_name = ?
+                        """,
+                        (
+                            order_id,
+                            stage_name,
+                        ),
+                    )
+
             connection.commit()
+
+        except Exception:
+            connection.rollback()
+            raise
 
         finally:
             connection.close()

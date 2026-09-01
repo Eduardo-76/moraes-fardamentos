@@ -67,3 +67,6 @@ storage/exports/
 
 release/
 release_installer/
+
+/GitAssistant.log
+/GitAssistant
