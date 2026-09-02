@@ -98,22 +98,16 @@ class OrderRepository:
             cursor.execute(
                 """
                 UPDATE orders
-                SET
-                    stock_withdrawn = 1,
-                    withdrawn_at = ?
+                SET stock_withdrawn = 1
                 WHERE id = ?
                 """,
-                (
-                    datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    order_id,
-                ),
+                (order_id,),
             )
 
             connection.commit()
 
         finally:
             connection.close()
-
 
     def update_order(self, order: OrderModel) -> None:
         if not order.id:
@@ -479,17 +473,33 @@ class OrderRepository:
             # ATUALIZA O PEDIDO
             # =====================================================
 
-            cursor.execute(
-                """
-                UPDATE orders
-                SET current_stage = ?
-                WHERE id = ?
-                """,
-                (
-                    new_stage,
-                    order_id,
-                ),
-            )
+            if new_stage == "Retirada":
+                cursor.execute(
+                    """
+                    UPDATE orders
+                    SET
+                        current_stage = ?,
+                        withdrawn_at = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        new_stage,
+                        now,
+                        order_id,
+                    ),
+                )
+            else:
+                cursor.execute(
+                    """
+                    UPDATE orders
+                    SET current_stage = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        new_stage,
+                        order_id,
+                    ),
+                )
 
             # =====================================================
             # MOVIMENTO PARA FRENTE

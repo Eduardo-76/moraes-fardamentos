@@ -2,6 +2,7 @@ import customtkinter as ctk
 import calendar
 from datetime import datetime
 import tkinter as tk
+from tkinter import messagebox
 
 from app.core.constants import PRIORITIES
 from app.core.utils import (
@@ -810,7 +811,11 @@ class OrderFormDialog(ctk.CTkToplevel):
                 )
 
             except ValueError:
-                deadline = deadline_text
+                messagebox.showerror(
+                    "Data inválida",
+                    "Informe uma data válida no formato DD/MM/AAAA."
+                )
+                return
         
 
         payload = {
