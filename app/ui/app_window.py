@@ -21,7 +21,7 @@ from app.ui.screens.security_screen import SecurityScreen
 from app.ui.screens.order_management_screen import (
     OrderManagementScreen
 )
-
+from app.ui.screens.withdrawals_screen import WithdrawalsScreen
 
 class AppWindow(ctk.CTk):
     def __init__(self) -> None:
@@ -74,33 +74,47 @@ class AppWindow(ctk.CTk):
         )
         self.orders_button.grid(row=2, column=0, padx=20, pady=8, sticky="ew")
 
+        self.withdrawals_button = ctk.CTkButton(
+            self.sidebar,
+            text="Retiradas",
+            command=self.show_withdrawals,
+        )
+
+        self.withdrawals_button.grid(
+            row=3,
+            column=0,
+            padx=20,
+            pady=8,
+            sticky="ew",
+        )
+
         self.stock_button = ctk.CTkButton(
             self.sidebar,
             text="Estoque",
             command=self.show_stock,
         )
-        self.stock_button.grid(row=3, column=0, padx=20, pady=8, sticky="ew")
+        self.stock_button.grid(row=4, column=0, padx=20, pady=8, sticky="ew")
 
         self.audio_button = ctk.CTkButton(
             self.sidebar,
             text="Assistente",
             command=self.show_audio,
         )
-        self.audio_button.grid(row=4, column=0, padx=20, pady=8, sticky="ew")
+        self.audio_button.grid(row=5, column=0, padx=20, pady=8, sticky="ew")
 
         self.fabric_roll_button = ctk.CTkButton(
             self.sidebar,
             text="Rolos de Malha",
             command=self.show_fabric_rolls,
         )
-        self.fabric_roll_button.grid(row=5, column=0, padx=20, pady=8, sticky="ew")
+        self.fabric_roll_button.grid(row=6, column=0, padx=20, pady=8, sticky="ew")
 
         self.fabric_roll_history_button = ctk.CTkButton(
             self.sidebar,
             text="Histórico Malha",
             command=self.show_fabric_roll_history,
         )
-        self.fabric_roll_history_button.grid(row=6, column=0, padx=20, pady=8, sticky="ew")
+        self.fabric_roll_history_button.grid(row=7, column=0, padx=20, pady=8, sticky="ew")
 
         self.main_frame = ctk.CTkFrame(self, corner_radius=0)
         self.main_frame.grid(row=0, column=1, sticky="nsew", padx=0, pady=0)
@@ -114,7 +128,7 @@ class AppWindow(ctk.CTk):
         )
 
         self.security_button.grid(
-            row=7,
+            row=8,
             column=0,
             padx=20,
             pady=8,
@@ -195,4 +209,19 @@ class AppWindow(ctk.CTk):
             sticky="nsew",
             padx=16,
             pady=16
+        )
+
+    def show_withdrawals(self) -> None:
+        self._clear_main_frame()
+
+        self.current_screen = WithdrawalsScreen(
+            self.main_frame
+        )
+
+        self.current_screen.grid(
+            row=0,
+            column=0,
+            sticky="nsew",
+            padx=16,
+            pady=16,
         )

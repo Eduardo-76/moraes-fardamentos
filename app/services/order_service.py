@@ -471,9 +471,9 @@ class OrderService:
             notes=notes,
 
             # Preserva o estado atual do pedido
-            current_stage=existing_order.current_stage,
-            status=existing_order.status,
+            stock_reserved=existing_order.stock_reserved,
             stock_withdrawn=existing_order.stock_withdrawn,
+            withdrawn_at=existing_order.withdrawn_at,
 
             items=order_items,
         )
