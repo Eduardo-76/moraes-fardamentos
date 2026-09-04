@@ -7,12 +7,6 @@ from PIL import ImageDraw
 from PIL import ImageFont
 
 from app.printing.command_layout import (
-    ARTWORK_AREA,
-    TextField,
-    TextArea
-)
-
-from app.printing.command_layout import (
     TextField,
     TextArea,
     CLIENT_NAME,

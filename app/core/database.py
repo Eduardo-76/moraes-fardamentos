@@ -295,4 +295,9 @@ def ensure_orders_columns(connection: Connection) -> None:
             """
         )
 
+    if "unit_value" not in columns:
+        cursor.execute(
+            "ALTER TABLE orders ADD COLUMN unit_value REAL DEFAULT 0"
+        )
+
     connection.commit()

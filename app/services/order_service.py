@@ -35,6 +35,7 @@ class OrderService:
         quantity: Optional[int],
         deadline: Optional[str],
         priority: Optional[str],
+        unit_value: Optional[float],
         total_value: Optional[float],
         notes: Optional[str],
         items: Optional[list[dict]] = None,
@@ -64,6 +65,7 @@ class OrderService:
             quantity=quantity,
             deadline=deadline,
             priority=priority,
+            unit_value=unit_value,
             total_value=total_value,
             notes=notes,
             current_stage="Recepção",
@@ -383,6 +385,7 @@ class OrderService:
             quantity=30,
             deadline="2026-04-25",
             priority="Alta",
+            unit_value=30.0,
             total_value=900.0,
             notes="Pedido de teste inicial",
             items=[
@@ -403,6 +406,7 @@ class OrderService:
             quantity=120,
             deadline="2026-04-27",
             priority="Prioridade Máxima",
+            unit_value=35.0,
             total_value=4200.0,
             notes="Entrega parcial pode ser necessária",
             items=[
@@ -426,6 +430,7 @@ class OrderService:
         quantity: int,
         deadline: Optional[str],
         priority: Optional[str],
+        unit_value: Optional[float],
         total_value: Optional[float],
         notes: Optional[str],
         items: Optional[list[dict]] = None,
@@ -467,6 +472,7 @@ class OrderService:
             quantity=quantity,
             deadline=deadline,
             priority=priority,
+            unit_value=unit_value,
             total_value=total_value,
             notes=notes,
 
@@ -614,6 +620,7 @@ class OrderService:
             fabric=order.fabric,
             type=order.type,
 
+            unit_value=order.unit_value or 0,
             total_value=order.total_value or 0,
 
             observations=order.notes,

@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Optional
 
+from more_itertools import one
+
 
 @dataclass
 class OrderItemModel:
@@ -25,7 +27,8 @@ class OrderModel:
     quantity: Optional[int] = None
     deadline: Optional[str] = None
     priority: Optional[str] = None
-    total_value: Optional[float] = None
+    unit_value: float = 0.0
+    total_value: float = 0.0
     paid: int = 0
     stock_reserved: int = 0
     stock_withdrawn: int = 0
