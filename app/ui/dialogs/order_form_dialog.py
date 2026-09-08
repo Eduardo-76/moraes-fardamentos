@@ -157,10 +157,49 @@ class OrderFormDialog(ctk.CTkToplevel):
             3,
             1
         )        
-        self.total_value_entry = self._create_entry("Valor total", 4, 0)
+
+        self.unit_value_entry = self._create_entry(
+            "Valor unitário",
+            4,
+            0
+        )
+
+        self.total_value_entry = self._create_entry(
+            "Valor total",
+            4,
+            1
+        )
+
+        self.discount_label = ctk.CTkLabel(
+            self.body,
+            text="",
+            font=ctk.CTkFont(
+                size=13,
+                weight="bold"
+            ),
+        )
+
+        self.discount_label.grid(
+            row=5,
+            column=0,
+            columnspan=2,
+            sticky="w",
+            padx=20,
+            pady=(0, 4),
+        )
+
+        self.unit_value_entry.bind(
+            "<KeyRelease>",
+            lambda event: self._update_discount()
+        )
+
+        self.total_value_entry.bind(
+            "<KeyRelease>",
+            lambda event: self._update_discount()
+        )        
 
         priority_frame = ctk.CTkFrame(self.body)
-        priority_frame.grid(row=4, column=1, sticky="ew", padx=8, pady=8)
+        priority_frame.grid(row=6, column=1, sticky="ew", padx=8, pady=8)
         priority_frame.grid_columnconfigure(0, weight=1)
 
         priority_label = ctk.CTkLabel(
@@ -175,7 +214,7 @@ class OrderFormDialog(ctk.CTkToplevel):
         self.priority_option.set("Média")
 
         notes_frame = ctk.CTkFrame(self.body)
-        notes_frame.grid(row=5, column=0, columnspan=2, sticky="ew", padx=8, pady=8)
+        notes_frame.grid(row=7, column=0, columnspan=2, sticky="ew", padx=8, pady=8)
         notes_frame.grid_columnconfigure(0, weight=1)
 
         notes_label = ctk.CTkLabel(
@@ -192,7 +231,7 @@ class OrderFormDialog(ctk.CTkToplevel):
 
     def _build_items_section(self) -> None:
         self.items_frame = ctk.CTkFrame(self.body)
-        self.items_frame.grid(row=6, column=0, columnspan=2, sticky="ew", padx=8, pady=8)
+        self.items_frame.grid(row=8, column=0, columnspan=2, sticky="ew", padx=8, pady=8)
         self.items_frame.grid_columnconfigure(0, weight=1)
 
         items_title = ctk.CTkLabel(
@@ -255,7 +294,10 @@ class OrderFormDialog(ctk.CTkToplevel):
         
         quantity_entry.bind(
             "<KeyRelease>",
-            lambda e: self._update_total_quantity()
+            lambda e: (
+                self._update_total_quantity(),
+                self._update_discount(),
+            )
         )
 
         quantity_entry.grid(row=0, column=2, padx=8, pady=8, sticky="ew")
@@ -296,6 +338,7 @@ class OrderFormDialog(ctk.CTkToplevel):
         self.item_rows = remaining
         self._rebuild_item_rows()
         self._update_total_quantity()
+        self._update_discount()
 
     def _rebuild_item_rows(self) -> None:
         for index, item in enumerate(self.item_rows):
@@ -743,8 +786,20 @@ class OrderFormDialog(ctk.CTkToplevel):
                     order.deadline
                 )
 
+        if order.unit_value is not None and order.unit_value > 0:
+            self.unit_value_entry.insert(
+                0,
+                str(order.unit_value)
+            )
+
         if order.total_value is not None:
-            self.total_value_entry.insert(0, str(order.total_value))
+            self.total_value_entry.insert(
+                0,
+                str(order.total_value)
+            )
+
+        self._update_discount()
+
         if order.priority:
             self.priority_option.set(order.priority)
         if order.notes:
@@ -764,6 +819,7 @@ class OrderFormDialog(ctk.CTkToplevel):
         else:
             self._add_item_row()
             self._update_total_quantity()
+            self._update_discount()
 
     def _save_order(self) -> None:
         items = []
@@ -794,6 +850,14 @@ class OrderFormDialog(ctk.CTkToplevel):
         total_value = normalize_money(
             self.total_value_entry.get()
             )
+
+        unit_value = normalize_money(
+            self.unit_value_entry.get()
+        )
+
+        total_value = normalize_money(
+            self.total_value_entry.get()
+        )
 
         deadline_text = self.deadline_entry.get().strip()
 
@@ -829,6 +893,7 @@ class OrderFormDialog(ctk.CTkToplevel):
             "quantity": total_quantity,
             "deadline": normalize_text(deadline),
             "priority": self.priority_option.get(),
+            "unit_value": unit_value,
             "total_value": total_value,
             "notes": normalize_text(self.notes_box.get("1.0", "end")),
             "items": items,
@@ -868,3 +933,53 @@ class OrderFormDialog(ctk.CTkToplevel):
                 f"{total}"
             )
         )
+
+    def _update_discount(self):
+        try:
+            quantity = self._get_total_quantity()
+
+            unit_value = normalize_money(
+                self.unit_value_entry.get()
+            )
+
+            total_value = normalize_money(
+                self.total_value_entry.get()
+            )
+
+        except (TypeError, ValueError):
+            self.discount_label.configure(text="")
+            return
+
+        if not quantity or not unit_value or total_value is None:
+            self.discount_label.configure(text="")
+            return
+
+        normal_total = quantity * unit_value
+        discount = normal_total - total_value
+
+        if discount > 0.009:
+            self.discount_label.configure(
+                text=(
+                    f"🏷 Desconto aplicado: "
+                    f"R$ {discount:,.2f}"
+                    .replace(",", "X")
+                    .replace(".", ",")
+                    .replace("X", ".")
+                )
+            )
+        else:
+            self.discount_label.configure(text="")
+
+    def _get_total_quantity(self):
+        total = 0
+
+        for item in self.item_rows:
+            value = item["quantity"].get().strip()
+
+            try:
+                total += int(value)
+
+            except ValueError:
+                pass
+
+        return total

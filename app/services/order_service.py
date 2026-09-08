@@ -427,14 +427,14 @@ class OrderService:
         model: Optional[str],
         fabric: Optional[str],
         order_type: Optional[str],
-        quantity: int,
+        quantity: Optional[int],
         deadline: Optional[str],
         priority: Optional[str],
-        unit_value: Optional[float],
         total_value: Optional[float],
         notes: Optional[str],
         items: Optional[list[dict]] = None,
         audio_id: Optional[int] = None,
+        unit_value: Optional[float] = None,
     ) -> None:
 
         existing_order = self.get_order_by_id(order_id)
@@ -462,7 +462,11 @@ class OrderService:
         order = OrderModel(
             id=order_id,
             client_id=client_id,
-            audio_id=audio_id if isinstance(audio_id, int) and audio_id > 0 else None,
+            audio_id=(
+                audio_id
+                if isinstance(audio_id, int) and audio_id > 0
+                else None
+            ),
             client_name=client_name,
             client_phone=client_phone,
             client_city=client_city,
@@ -472,7 +476,13 @@ class OrderService:
             quantity=quantity,
             deadline=deadline,
             priority=priority,
-            unit_value=unit_value,
+
+            unit_value=(
+                existing_order.unit_value
+                if unit_value is None
+                else unit_value
+            ),
+
             total_value=total_value,
             notes=notes,
 
@@ -485,6 +495,7 @@ class OrderService:
         )
 
         self.repository.update_order(order)
+
 
     def reserve_order_stock(
         self,

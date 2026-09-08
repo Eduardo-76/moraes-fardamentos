@@ -7,6 +7,7 @@ from PIL import ImageDraw
 from PIL import ImageFont
 
 from app.printing.command_layout import (
+    UNIT_VALUE,
     TextField,
     TextArea,
     CLIENT_NAME,
@@ -259,6 +260,11 @@ class CommandCanvas:
         self.draw_currency(
             job.total_value,
             TOTAL_VALUE
+        )
+
+        self.draw_currency(
+            job.unit_value,
+            UNIT_VALUE
         )
 
         self.draw_text_area(
