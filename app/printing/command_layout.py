@@ -88,6 +88,18 @@ TOTAL_VALUE = TextField(
     font_size=20
 )
 
+CREATED_AT_LABEL = TextField(
+    x=1400,
+    y=35,
+    font_size=15
+)
+
+CREATED_AT_VALUE = TextField(
+    x=1415,
+    y=62,
+    font_size=18
+)
+
 # =========================================================
 # OBSERVAÇÕES
 # =========================================================

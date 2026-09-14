@@ -1,3 +1,4 @@
+from datetime import datetime
 from pathlib import Path
 
 import fitz
@@ -14,6 +15,8 @@ from app.printing.command_layout import (
     PHONE,
     CITY,
     DELIVERY_DATE,
+    CREATED_AT_LABEL,
+    CREATED_AT_VALUE,
     MODEL,
     FABRIC,
     TYPE,
@@ -241,6 +244,31 @@ class CommandCanvas:
             job.delivery_date,
             DELIVERY_DATE
         )
+
+        if job.created_at:
+            try:
+                created_date = datetime.strptime(
+                    str(job.created_at),
+                    "%Y-%m-%d %H:%M:%S"
+                )
+
+                created_date_text = created_date.strftime(
+                    "%d/%m/%Y"
+                )
+
+            except ValueError:
+                created_date_text = str(job.created_at)
+
+            self.draw_field(
+                "DATA DE CRIAÇÃO",
+                CREATED_AT_LABEL
+            )
+
+            self.draw_field(
+                created_date_text,
+                CREATED_AT_VALUE
+            )
+
 
         self.draw_field(
             job.model,

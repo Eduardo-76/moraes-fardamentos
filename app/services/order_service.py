@@ -626,6 +626,7 @@ class OrderService:
             client_city=order.client_city,
 
             delivery_date=order.deadline,
+            created_at=order.created_at,
 
             model=order.model,
             fabric=order.fabric,
