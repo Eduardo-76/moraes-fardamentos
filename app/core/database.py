@@ -101,7 +101,7 @@ def create_tables(connection: Connection) -> None:
         )
         """
     )
-    
+
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS order_items (
@@ -237,8 +237,27 @@ def create_tables(connection: Connection) -> None:
         )
         """
     )
-    
+
+    # ==========================================================
+    # PAGAMENTOS
+    # ==========================================================
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS payments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_id INTEGER NOT NULL,
+            amount REAL NOT NULL,
+            payment_method TEXT NOT NULL,
+            paid_at TEXT NOT NULL,
+            notes TEXT,
+            FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+        )
+        """
+    )
+
     connection.commit()
+
 
 def seed_metadata(connection: Connection) -> None:
     cursor = connection.cursor()
@@ -272,10 +291,12 @@ def initialize_database() -> None:
     try:
         create_tables(connection)
         ensure_orders_columns(connection)
+        ensure_payments_table(connection)
         seed_metadata(connection)
 
     finally:
         connection.close()
+
 
 def ensure_orders_columns(connection: Connection) -> None:
     cursor = connection.cursor()
@@ -299,5 +320,23 @@ def ensure_orders_columns(connection: Connection) -> None:
         cursor.execute(
             "ALTER TABLE orders ADD COLUMN unit_value REAL DEFAULT 0"
         )
+
+    connection.commit()
+
+
+def ensure_payments_table(connection: Connection) -> None:
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS payments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_id INTEGER NOT NULL,
+            amount REAL NOT NULL,
+            payment_method TEXT NOT NULL,
+            paid_at TEXT NOT NULL,
+            notes TEXT,
+            FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+        )
+        """
+    )
 
     connection.commit()
