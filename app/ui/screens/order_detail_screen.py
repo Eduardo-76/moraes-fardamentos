@@ -471,7 +471,7 @@ class OrderDetailScreen(ctk.CTkFrame):
             row=0,
             column=0,
             title="Valor final",
-            value=f"R$ {total_value:.2f}"
+            value=self._format_currency(total_value)
         )
 
         self._create_financial_value(
@@ -479,7 +479,7 @@ class OrderDetailScreen(ctk.CTkFrame):
             row=0,
             column=1,
             title="Total pago",
-            value=f"R$ {total_paid:.2f}"
+            value=self._format_currency(total_paid)
         )
 
         self._create_financial_value(
@@ -487,7 +487,7 @@ class OrderDetailScreen(ctk.CTkFrame):
             row=0,
             column=2,
             title="A receber",
-            value=f"R$ {remaining:.2f}"
+            value=self._format_currency(remaining)
         )
 
         self._create_financial_value(
@@ -639,7 +639,7 @@ class OrderDetailScreen(ctk.CTkFrame):
 
             amount_label = ctk.CTkLabel(
                 history_frame,
-                text=f"R$ {payment.amount:.2f}"
+                text=self._format_currency(payment.amount)
             )
 
             amount_label.grid(
@@ -949,4 +949,7 @@ class OrderDetailScreen(ctk.CTkFrame):
         self.command_printer.export_pdf(
             self.order_id
         )
+
+    def _format_currency(self, value: float) -> str:
+        return f"R$ {value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
