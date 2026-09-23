@@ -5,9 +5,10 @@ from app.services.order_service import OrderService
 
 
 class WithdrawalsScreen(ctk.CTkFrame):
-    def __init__(self, master):
+    def __init__(self, master, on_open_order=None):
         super().__init__(master)
 
+        self.on_open_order = on_open_order
         self.order_service = OrderService()
 
         self._build_ui()
@@ -619,6 +620,32 @@ class WithdrawalsScreen(ctk.CTkFrame):
             pady=12,
             sticky="n",
         )
+
+        # --------------------------------------------------------
+        # Clique no card para abrir os detalhes do pedido
+        # --------------------------------------------------------
+
+        self._bind_card_click(
+            card,
+            order.id,
+        )
+
+    def _bind_card_click(self, widget, order_id):
+        if not callable(self.on_open_order):
+            return
+
+        widget.configure(cursor="hand2")
+        widget.bind(
+            "<Button-1>",
+            lambda event, oid=order_id: self._open_order(oid),
+        )
+
+        for child in widget.winfo_children():
+            self._bind_card_click(child, order_id)
+
+    def _open_order(self, order_id):
+        if callable(self.on_open_order):
+            self.on_open_order(order_id)
 
     # ============================================================
     # Formatação
