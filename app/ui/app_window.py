@@ -37,7 +37,6 @@ class AppWindow(ctk.CTk):
         self.order_service = OrderService()
         self.stock_service = StockService()
 
-        self.order_service.create_sample_orders_if_empty()
         self.stock_service.create_sample_stock_if_empty()
 
         self.current_screen = None
