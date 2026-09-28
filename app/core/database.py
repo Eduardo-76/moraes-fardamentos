@@ -89,10 +89,13 @@ def create_tables(connection: Connection) -> None:
             quantity INTEGER,
             deadline TEXT,
             priority TEXT,
+            unit_value REAL DEFAULT 0,
             total_value REAL,
             paid INTEGER DEFAULT 0,
+            stock_reserved INTEGER DEFAULT 0,
             stock_withdrawn INTEGER DEFAULT 0,
             withdrawn_at TEXT,
+            status TEXT DEFAULT 'Pendente',
             notes TEXT,
             current_stage TEXT DEFAULT 'Recepção',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -143,6 +146,7 @@ def create_tables(connection: Connection) -> None:
             stock_category TEXT,
             reference TEXT,
             total_quantity INTEGER DEFAULT 0,
+            reserved_quantity INTEGER DEFAULT 0,
             notes TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -157,8 +161,8 @@ def create_tables(connection: Connection) -> None:
             size TEXT,
             gender TEXT,
             quantity INTEGER,
-            FOREIGN KEY (stock_entry_id) REFERENCES stock_entries(id) ON DELETE CASCADE
-        )
+            reserved_quantity INTEGER DEFAULT 0,
+            FOREIGN KEY (stock_entry_id) REFERENCES stock_entries(id) ON DELETE CASCADE        )
         """
     )
 
@@ -291,6 +295,7 @@ def initialize_database() -> None:
     try:
         create_tables(connection)
         ensure_orders_columns(connection)
+        ensure_stock_columns(connection)
         ensure_payments_table(connection)
         seed_metadata(connection)
 
@@ -308,21 +313,67 @@ def ensure_orders_columns(connection: Connection) -> None:
         for row in cursor.fetchall()
     }
 
-    if "withdrawn_at" not in columns:
+    if "stock_reserved" not in columns:
         cursor.execute(
             """
             ALTER TABLE orders
-            ADD COLUMN withdrawn_at TEXT
+            ADD COLUMN stock_reserved INTEGER DEFAULT 0
+            """
+        )
+
+    if "status" not in columns:
+        cursor.execute(
+            """
+            ALTER TABLE orders
+            ADD COLUMN status TEXT DEFAULT 'Pendente'
             """
         )
 
     if "unit_value" not in columns:
         cursor.execute(
-            "ALTER TABLE orders ADD COLUMN unit_value REAL DEFAULT 0"
+            """
+            ALTER TABLE orders
+            ADD COLUMN unit_value REAL DEFAULT 0
+            """
         )
 
     connection.commit()
 
+
+def ensure_stock_columns(connection: Connection) -> None:
+    cursor = connection.cursor()
+
+    cursor.execute("PRAGMA table_info(stock_entries)")
+
+    stock_columns = {
+        row["name"]
+        for row in cursor.fetchall()
+    }
+
+    if "reserved_quantity" not in stock_columns:
+        cursor.execute(
+            """
+            ALTER TABLE stock_entries
+            ADD COLUMN reserved_quantity INTEGER DEFAULT 0
+            """
+        )
+
+    cursor.execute("PRAGMA table_info(stock_entry_items)")
+
+    item_columns = {
+        row["name"]
+        for row in cursor.fetchall()
+    }
+
+    if "reserved_quantity" not in item_columns:
+        cursor.execute(
+            """
+            ALTER TABLE stock_entry_items
+            ADD COLUMN reserved_quantity INTEGER DEFAULT 0
+            """
+        )
+
+    connection.commit()
 
 def ensure_payments_table(connection: Connection) -> None:
     connection.execute(
