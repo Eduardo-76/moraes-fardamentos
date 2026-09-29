@@ -150,7 +150,7 @@ class ActionCard(ctk.CTkFrame):
     def _on_click(self, event):
 
         if self.command:
-            self.command(self)
+            self.command()
 
 import customtkinter as ctk
 
