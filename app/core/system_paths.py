@@ -1,16 +1,20 @@
-from pathlib import Path
+from app.core.paths import (
+    APP_DIR,
+    DATA_DIR,
+    BACKUPS_DIR,
+    STORAGE_DIR,
+    ARTWORK_DIR,
+)
 
 
 class SystemPaths:
+    """Compatibilidade para os módulos administrativos antigos."""
 
-    PROJECT_ROOT = Path(__file__).resolve().parents[2]
+    PROJECT_ROOT = APP_DIR
+    DATA_DIR = DATA_DIR
+    BACKUPS_DIR = BACKUPS_DIR
 
-    DATA_DIR = PROJECT_ROOT / "data"
-
-    PEDIDOS_DIR = PROJECT_ROOT / "pedidos"
-
-    ARTES_DIR = PROJECT_ROOT / "artes"
-
-    CONFIG_DIR = PROJECT_ROOT / "config"
-
-    BACKUPS_DIR = PROJECT_ROOT / "backups"
+    # Mantidos como aliases para evitar quebra de imports antigos.
+    PEDIDOS_DIR = STORAGE_DIR
+    ARTES_DIR = ARTWORK_DIR
+    CONFIG_DIR = APP_DIR / "config"

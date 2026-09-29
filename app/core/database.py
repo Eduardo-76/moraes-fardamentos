@@ -15,8 +15,6 @@ def get_connection() -> Connection:
 def create_tables(connection: Connection) -> None:
     cursor = connection.cursor()
 
-    # 👇 COLOQUE ANTES DE QUALQUER REFERÊNCIA
-
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS fabric_rolls (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -30,27 +28,11 @@ def create_tables(connection: Connection) -> None:
     CREATE TABLE IF NOT EXISTS fabric_roll_movements (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         roll_id INTEGER NOT NULL,
-
         movement_type TEXT NOT NULL,
-
         location_name TEXT,
-
         from_location TEXT,
         to_location TEXT,
-
         quantity INTEGER NOT NULL,
-
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-    """)
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS stock_movements (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        roll_id INTEGER NOT NULL,
-        location_name TEXT NOT NULL,
-        quantity INTEGER NOT NULL,
-        movement_type TEXT NOT NULL, -- saída / entrada
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     """)
@@ -162,10 +144,14 @@ def create_tables(connection: Connection) -> None:
             gender TEXT,
             quantity INTEGER,
             reserved_quantity INTEGER DEFAULT 0,
-            FOREIGN KEY (stock_entry_id) REFERENCES stock_entries(id) ON DELETE CASCADE        )
+            FOREIGN KEY (stock_entry_id) REFERENCES stock_entries(id) ON DELETE CASCADE
+        )
         """
     )
 
+    # Movimentações do estoque atual.
+    # A tabela antiga possuía outra estrutura; a migração em
+    # ensure_stock_movement_columns() adapta bancos existentes.
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS stock_movements (
@@ -242,10 +228,6 @@ def create_tables(connection: Connection) -> None:
         """
     )
 
-    # ==========================================================
-    # PAGAMENTOS
-    # ==========================================================
-
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS payments (
@@ -270,17 +252,14 @@ def seed_metadata(connection: Connection) -> None:
         "INSERT OR IGNORE INTO app_metadata (key, value) VALUES (?, ?)",
         ("default_stage", "Recepção"),
     )
-
     cursor.execute(
         "INSERT OR IGNORE INTO app_metadata (key, value) VALUES (?, ?)",
         ("available_stages", ",".join(ORDER_STAGES)),
     )
-
     cursor.execute(
         "INSERT OR IGNORE INTO app_metadata (key, value) VALUES (?, ?)",
         ("available_statuses", ",".join(STAGE_STATUSES)),
     )
-
     cursor.execute(
         "INSERT OR IGNORE INTO app_metadata (key, value) VALUES (?, ?)",
         ("available_priorities", ",".join(PRIORITIES)),
@@ -296,45 +275,29 @@ def initialize_database() -> None:
         create_tables(connection)
         ensure_orders_columns(connection)
         ensure_stock_columns(connection)
+        ensure_stock_movement_columns(connection)
         ensure_payments_table(connection)
         seed_metadata(connection)
-
     finally:
         connection.close()
 
 
 def ensure_orders_columns(connection: Connection) -> None:
     cursor = connection.cursor()
-
     cursor.execute("PRAGMA table_info(orders)")
-
-    columns = {
-        row["name"]
-        for row in cursor.fetchall()
-    }
+    columns = {row["name"] for row in cursor.fetchall()}
 
     if "stock_reserved" not in columns:
         cursor.execute(
-            """
-            ALTER TABLE orders
-            ADD COLUMN stock_reserved INTEGER DEFAULT 0
-            """
+            "ALTER TABLE orders ADD COLUMN stock_reserved INTEGER DEFAULT 0"
         )
-
     if "status" not in columns:
         cursor.execute(
-            """
-            ALTER TABLE orders
-            ADD COLUMN status TEXT DEFAULT 'Pendente'
-            """
+            "ALTER TABLE orders ADD COLUMN status TEXT DEFAULT 'Pendente'"
         )
-
     if "unit_value" not in columns:
         cursor.execute(
-            """
-            ALTER TABLE orders
-            ADD COLUMN unit_value REAL DEFAULT 0
-            """
+            "ALTER TABLE orders ADD COLUMN unit_value REAL DEFAULT 0"
         )
 
     connection.commit()
@@ -344,36 +307,49 @@ def ensure_stock_columns(connection: Connection) -> None:
     cursor = connection.cursor()
 
     cursor.execute("PRAGMA table_info(stock_entries)")
-
-    stock_columns = {
-        row["name"]
-        for row in cursor.fetchall()
-    }
+    stock_columns = {row["name"] for row in cursor.fetchall()}
 
     if "reserved_quantity" not in stock_columns:
         cursor.execute(
-            """
-            ALTER TABLE stock_entries
-            ADD COLUMN reserved_quantity INTEGER DEFAULT 0
-            """
+            "ALTER TABLE stock_entries ADD COLUMN reserved_quantity INTEGER DEFAULT 0"
         )
 
     cursor.execute("PRAGMA table_info(stock_entry_items)")
-
-    item_columns = {
-        row["name"]
-        for row in cursor.fetchall()
-    }
+    item_columns = {row["name"] for row in cursor.fetchall()}
 
     if "reserved_quantity" not in item_columns:
         cursor.execute(
-            """
-            ALTER TABLE stock_entry_items
-            ADD COLUMN reserved_quantity INTEGER DEFAULT 0
-            """
+            "ALTER TABLE stock_entry_items ADD COLUMN reserved_quantity INTEGER DEFAULT 0"
         )
 
     connection.commit()
+
+
+def ensure_stock_movement_columns(connection: Connection) -> None:
+    """
+    Compatibilidade com bancos criados por versões anteriores.
+
+    Algumas versões antigas criaram stock_movements com stock_item_id
+    ou roll_id. A versão atual usa stock_entry_id. Não apagamos o histórico:
+    apenas adicionamos as colunas que a estrutura atual precisa.
+    """
+    cursor = connection.cursor()
+
+    cursor.execute("PRAGMA table_info(stock_movements)")
+    columns = {row["name"] for row in cursor.fetchall()}
+
+    if "stock_entry_id" not in columns:
+        cursor.execute(
+            "ALTER TABLE stock_movements ADD COLUMN stock_entry_id INTEGER"
+        )
+
+    if "notes" not in columns:
+        cursor.execute(
+            "ALTER TABLE stock_movements ADD COLUMN notes TEXT"
+        )
+
+    connection.commit()
+
 
 def ensure_payments_table(connection: Connection) -> None:
     connection.execute(
@@ -389,5 +365,4 @@ def ensure_payments_table(connection: Connection) -> None:
         )
         """
     )
-
     connection.commit()
