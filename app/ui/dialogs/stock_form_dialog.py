@@ -68,6 +68,7 @@ class StockFormDialog(ctk.CTkToplevel):
         self.category_entry = self._create_entry("Categoria do estoque", 2, 1)
         self.reference_entry = self._create_entry("Referência", 3, 0)
         self.total_quantity_entry = self._create_entry("Quantidade total", 3, 1)
+        self.total_quantity_entry.configure(state="readonly")
 
         notes_frame = ctk.CTkFrame(self.body)
         notes_frame.grid(row=4, column=0, columnspan=2, sticky="ew", padx=8, pady=8)
@@ -133,6 +134,11 @@ class StockFormDialog(ctk.CTkToplevel):
         if quantity != "":
             quantity_entry.insert(0, str(quantity))
 
+        quantity_entry.bind(
+            "<KeyRelease>",
+            lambda _event: self._update_total_quantity()
+        )
+
         remove_button = ctk.CTkButton(
             row_frame,
             text="Remover",
@@ -152,6 +158,30 @@ class StockFormDialog(ctk.CTkToplevel):
             }
         )
 
+        self._update_total_quantity()
+
+    def _update_total_quantity(self) -> None:
+        total = 0
+
+        for item in self.item_rows:
+            raw_quantity = item["quantity"].get().strip()
+
+            if not raw_quantity:
+                continue
+
+            try:
+                quantity = int(raw_quantity)
+            except ValueError:
+                continue
+
+            if quantity > 0:
+                total += quantity
+
+        self.total_quantity_entry.configure(state="normal")
+        self.total_quantity_entry.delete(0, "end")
+        self.total_quantity_entry.insert(0, str(total))
+        self.total_quantity_entry.configure(state="readonly")
+
     def _remove_item_row(self, row_frame) -> None:
         if len(self.item_rows) <= 1:
             return
@@ -165,6 +195,7 @@ class StockFormDialog(ctk.CTkToplevel):
 
         self.item_rows = remaining
         self._rebuild_item_rows()
+        self._update_total_quantity()
 
     def _rebuild_item_rows(self) -> None:
         for index, item in enumerate(self.item_rows):
@@ -228,7 +259,10 @@ class StockFormDialog(ctk.CTkToplevel):
             self.category_entry.insert(0, stock.stock_category)
         if stock.reference:
             self.reference_entry.insert(0, stock.reference)
+        self.total_quantity_entry.configure(state="normal")
+        self.total_quantity_entry.delete(0, "end")
         self.total_quantity_entry.insert(0, str(stock.total_quantity))
+        self.total_quantity_entry.configure(state="readonly")
         if stock.notes:
             self.notes_box.insert("1.0", stock.notes)
 
@@ -264,6 +298,8 @@ class StockFormDialog(ctk.CTkToplevel):
                     "quantity": normalize_int(raw_quantity),
                 }
             )
+
+        self._update_total_quantity()
 
         payload = {
             "model": self.model_entry.get(),
