@@ -45,6 +45,14 @@ EXPORT_DIR = STORAGE_DIR / "exports"
 TEMP_DIR = STORAGE_DIR / "temp"
 
 # =========================================================
+# PEDIDOS
+# =========================================================
+
+# Documentos gerados pelos pedidos ficam fora de storage,
+# diretamente na raiz de dados da aplicação.
+PEDIDOS_DIR = APP_DIR / "pedidos"
+
+# =========================================================
 # RECURSOS
 # =========================================================
 
@@ -65,6 +73,7 @@ def ensure_directories() -> None:
         PDF_DIR,
         EXPORT_DIR,
         TEMP_DIR,
+        PEDIDOS_DIR,
     ]
 
     for directory in directories:

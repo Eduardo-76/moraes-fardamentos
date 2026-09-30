@@ -10,6 +10,7 @@ from app.core.paths import (
     BACKUPS_DIR,
     STORAGE_DIR,
     ARTWORK_DIR,
+    PEDIDOS_DIR,
 )
 from app.models.backup_result_model import BackupResult
 from app.models.backup_info_model import BackupInfoModel
@@ -36,6 +37,7 @@ class BackupService:
             ) as zip_file:
                 total_files += self._zip_directory(zip_file, DATA_DIR)
                 total_files += self._zip_directory(zip_file, STORAGE_DIR)
+                total_files += self._zip_directory(zip_file, PEDIDOS_DIR)
 
                 zip_file.writestr(
                     "backup_info.json",
@@ -63,32 +65,68 @@ class BackupService:
             ) from exc
 
     def restore_backup(self, backup_file: Path) -> None:
-        """Restaura dados e arquivos de um backup válido."""
+        """
+        Restaura dados e arquivos de um backup válido.
+
+        Compatibilidade:
+        - backups novos podem conter data/, storage/ e pedidos/
+        - backups antigos não possuem pedidos/; nesse caso preservamos
+          a pasta pedidos existente para não apagar documentos que o
+          backup antigo nunca teve como salvar.
+        """
         if not backup_file.exists():
             raise BackupError("Arquivo de backup não encontrado.")
 
         if not self.validate_backup(backup_file):
-            raise BackupError("O arquivo selecionado não é um backup válido do sistema.")
+            raise BackupError(
+                "O arquivo selecionado não é um backup válido do sistema."
+            )
 
         with zipfile.ZipFile(backup_file, "r") as zip_file:
             self._validate_members(zip_file)
+
+            names = [
+                member.filename.replace("\\", "/")
+                for member in zip_file.infolist()
+            ]
+
+            has_pedidos = any(
+                name.startswith("pedidos/")
+                for name in names
+            )
 
             # Mantém a pasta de backups para que o próprio arquivo usado
             # na restauração continue disponível.
             self._clear_directory(DATA_DIR, preserve=BACKUPS_DIR)
             self._clear_directory(STORAGE_DIR)
 
+            # Só substituímos pedidos quando o backup realmente possui
+            # pedidos/. Backups antigos não tinham essa pasta.
+            if has_pedidos:
+                self._clear_directory(PEDIDOS_DIR)
+
             for member in zip_file.infolist():
                 if member.filename == "backup_info.json":
                     continue
+
                 zip_file.extract(member, APP_DIR)
+
+        # Garante que a estrutura exista mesmo em backups antigos.
+        PEDIDOS_DIR.mkdir(parents=True, exist_ok=True)
+
+        # O backup pode conter um banco de uma versão anterior.
+        # Após restaurar o app.db, executamos a inicialização novamente
+        # para criar tabelas/colunas adicionadas em versões posteriores.
+        from app.core.database import initialize_database
+
+        initialize_database()
 
     def _backup_filename(self) -> str:
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         return f"backup_{timestamp}.zip"
 
     def _backup_sources(self) -> list[Path]:
-        return [DATA_DIR, STORAGE_DIR]
+        return [DATA_DIR, STORAGE_DIR, PEDIDOS_DIR]
 
     def _create_backup_info(self) -> dict:
         return {
@@ -104,6 +142,7 @@ class BackupService:
             "contents": {
                 "data": DATA_DIR.exists(),
                 "storage": STORAGE_DIR.exists(),
+                "pedidos": PEDIDOS_DIR.exists(),
                 "artes": ARTWORK_DIR.exists(),
             },
         }
@@ -144,7 +183,11 @@ class BackupService:
         return files
 
     def _validate_members(self, zip_file: zipfile.ZipFile) -> None:
-        allowed_roots = ("data/", "storage/")
+        allowed_roots = (
+            "data/",
+            "storage/",
+            "pedidos/",
+        )
 
         for member in zip_file.infolist():
             name = member.filename.replace("\\", "/")
@@ -158,8 +201,14 @@ class BackupService:
                 )
 
             target = (APP_DIR / name).resolve()
-            if APP_DIR.resolve() not in target.parents and target != APP_DIR.resolve():
-                raise BackupError("O backup contém um caminho inválido.")
+
+            if (
+                APP_DIR.resolve() not in target.parents
+                and target != APP_DIR.resolve()
+            ):
+                raise BackupError(
+                    "O backup contém um caminho inválido."
+                )
 
     def _clear_directory(
         self,
@@ -169,7 +218,10 @@ class BackupService:
         directory.mkdir(parents=True, exist_ok=True)
 
         for child in directory.iterdir():
-            if preserve is not None and child.resolve() == preserve.resolve():
+            if (
+                preserve is not None
+                and child.resolve() == preserve.resolve()
+            ):
                 continue
 
             if child.is_dir():
@@ -192,7 +244,9 @@ class BackupService:
             version=info["system"]["version"],
             database=info["system"]["database"],
             backup_type=info["backup"]["type"],
-            created_at=datetime.fromisoformat(info["backup"]["created_at"]),
+            created_at=datetime.fromisoformat(
+                info["backup"]["created_at"]
+            ),
             has_data=bool(contents.get("data", False)),
             has_orders=bool(contents.get("storage", False)),
             has_artes=bool(contents.get("artes", False)),
@@ -202,8 +256,14 @@ class BackupService:
     def validate_backup(self, backup_file: Path) -> bool:
         try:
             self.read_backup_info(backup_file)
-            with zipfile.ZipFile(backup_file, "r") as zip_file:
+
+            with zipfile.ZipFile(
+                backup_file,
+                "r"
+            ) as zip_file:
                 self._validate_members(zip_file)
+
             return True
+
         except Exception:
             return False
