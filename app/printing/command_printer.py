@@ -12,14 +12,9 @@ from app.printing.printing_paths import (
 class CommandPrinter:
 
     def __init__(self):
-
         self.order_service = OrderService()
 
-    def _get_artwork_path(
-        self,
-        order_id: int
-    ):
-
+    def _get_artwork_path(self, order_id: int):
         artwork_dir = ARTWORK_DIR
 
         if not artwork_dir.exists():
@@ -34,7 +29,6 @@ class CommandPrinter:
         ]
 
         for extension in extensions:
-
             artwork_path = (
                 artwork_dir
                 / f"pedido_{order_id}{extension}"
@@ -45,24 +39,14 @@ class CommandPrinter:
 
         return None
 
-    def build(
-        self,
-        order_id: int
-    ) -> CommandDocument:
-
-        job = self.order_service.get_print_job(
-            order_id
-        )
+    def build(self, order_id: int) -> CommandDocument:
+        job = self.order_service.get_print_job(order_id)
 
         canvas = CommandCanvas()
 
-        canvas.load_template(
-            COMMAND_TEMPLATE
-        )
+        canvas.load_template(COMMAND_TEMPLATE)
 
-        artwork_path = self._get_artwork_path(
-            order_id
-        )
+        artwork_path = self._get_artwork_path(order_id)
 
         canvas.draw_print_job(
             job,
@@ -74,28 +58,16 @@ class CommandPrinter:
             order_id=order_id
         )
 
-    def preview(
-        self,
-        order_id: int
-    ):
+    def preview(self, order_id: int):
+        document = self.build(order_id)
 
-        document = self.build(
-            order_id
-        )
+        # A comanda é salva fisicamente antes de ser aberta.
+        # Isso elimina o uso de arquivos temporários do Image.show().
+        return document.show()
 
-        document.show()
+    def export_pdf(self, order_id: int):
+        document = self.build(order_id)
 
-    def export_pdf(
-        self,
-        order_id: int
-    ):
-
-        document = self.build(
-            order_id
-        )
-
-        document.save_pdf(
-            PrintingPaths.command_pdf(
-                order_id
-            )
+        return document.save_pdf(
+            PrintingPaths.command_pdf(order_id)
         )
