@@ -4,11 +4,11 @@ from app.services.order_service import OrderService
 
 
 class DashboardScreen(ctk.CTkFrame):
-    def __init__(self, master) -> None:
+    def __init__(self, master, on_open_order=None) -> None:
         super().__init__(master)
 
         self.order_service = OrderService()
-
+        self.on_open_order = on_open_order
         self.grid_columnconfigure((0, 1, 2, 3), weight=1)
         self.grid_rowconfigure(2, weight=1)
 
@@ -106,14 +106,25 @@ class DashboardScreen(ctk.CTkFrame):
         frame = ctk.CTkFrame(master)
         frame.grid_columnconfigure(0, weight=1)
 
-        stock_text = "Estoque baixado" if order.stock_withdrawn else "Sem baixa de estoque"
+        stock_text = (
+            "Estoque baixado"
+            if order.stock_withdrawn
+            else "Sem baixa de estoque"
+        )
 
         title = ctk.CTkLabel(
             frame,
             text=order.client_name or "Sem cliente",
             font=ctk.CTkFont(size=17, weight="bold"),
+            cursor="hand2",
         )
-        title.grid(row=0, column=0, sticky="w", padx=14, pady=(12, 4))
+        title.grid(
+            row=0,
+            column=0,
+            sticky="w",
+            padx=14,
+            pady=(12, 4),
+        )
 
         details = ctk.CTkLabel(
             frame,
@@ -123,8 +134,15 @@ class DashboardScreen(ctk.CTkFrame):
                 f"{stock_text}"
             ),
             font=ctk.CTkFont(size=13),
+            cursor="hand2",
         )
-        details.grid(row=1, column=0, sticky="w", padx=14, pady=(0, 12))
+        details.grid(
+            row=1,
+            column=0,
+            sticky="w",
+            padx=14,
+            pady=(0, 12),
+        )
 
         priority = ctk.CTkLabel(
             frame,
@@ -134,7 +152,21 @@ class DashboardScreen(ctk.CTkFrame):
             padx=10,
             pady=5,
         )
-        priority.grid(row=0, column=1, rowspan=2, padx=14, pady=12, sticky="e")
+        priority.grid(
+            row=0,
+            column=1,
+            rowspan=2,
+            padx=14,
+            pady=12,
+            sticky="e",
+        )
+
+        def open_order(_event=None):
+            if callable(self.on_open_order):
+                self.on_open_order(order.id)
+
+        for widget in (frame, title, details):
+            widget.bind("<Button-1>", open_order)
 
         return frame
 

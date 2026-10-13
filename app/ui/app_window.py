@@ -140,8 +140,28 @@ class AppWindow(ctk.CTk):
 
     def show_dashboard(self) -> None:
         self._clear_main_frame()
-        self.current_screen = DashboardScreen(self.main_frame)
+        self.current_screen = DashboardScreen(
+            self.main_frame,
+            on_open_order=self.show_order_detail_from_dashboard,
+        )
         self.current_screen.grid(row=0, column=0, sticky="nsew", padx=16, pady=16)
+
+    def show_order_detail_from_dashboard(self, order_id: int) -> None:
+        self._clear_main_frame()
+
+        self.current_screen = OrderDetailScreen(
+            self.main_frame,
+            order_id=order_id,
+            on_back=self.show_dashboard,
+        )
+
+        self.current_screen.grid(
+            row=0,
+            column=0,
+            sticky="nsew",
+            padx=16,
+            pady=16,
+        )
 
     def show_orders(self) -> None:
         self._clear_main_frame()

@@ -457,6 +457,10 @@ class OrdersScreen(ctk.CTkFrame):
             self.order_service.list_orders()
         )
 
+        orders.sort(
+            key=lambda order: str(order.status or "").strip().casefold() == "entregue"
+        )
+
         if not orders:
             placeholder = ctk.CTkLabel(
                 self.list_frame,
@@ -618,7 +622,14 @@ class OrdersScreen(ctk.CTkFrame):
         return deadline_date < datetime.now().date()
 
     def _create_order_card(self, order) -> ctk.CTkFrame:
-        frame = ctk.CTkFrame(self.list_frame)
+        entregue = (
+            str(order.status or "").strip().casefold() == "entregue"
+        )
+
+        frame = ctk.CTkFrame(
+            self.list_frame,
+            fg_color="#D1FAE5" if entregue else "transparent",
+        )
 
         frame.grid_columnconfigure(
             0,
