@@ -21,6 +21,7 @@ from app.printing.command_layout import (
     FABRIC,
     TYPE,
     TOTAL_VALUE,
+    TOTAL_PAID,
     OBSERVATIONS,
     SIZE_LAYOUT,
     ARTWORK_AREA,
@@ -293,6 +294,11 @@ class CommandCanvas:
         self.draw_currency(
             job.unit_value,
             UNIT_VALUE
+        )
+
+        self.draw_currency(
+            job.total_paid,
+            TOTAL_PAID
         )
 
         self.draw_text_area(

@@ -37,6 +37,7 @@ TYPE = TextField(x=430, y=910, font_size=22)
 
 UNIT_VALUE = TextField(x=1150, y=45, font_size=24)
 TOTAL_VALUE = TextField(x=1150, y=125, font_size=24)
+TOTAL_PAID = TextField(x=1150, y=200, font_size=24)
 
 CREATED_AT_LABEL = TextField(x=1400, y=35, font_size=17)
 CREATED_AT_VALUE = TextField(x=1415, y=62, font_size=22)

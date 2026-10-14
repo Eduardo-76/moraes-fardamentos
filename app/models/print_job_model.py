@@ -31,6 +31,7 @@ class PrintJobModel:
 
     unit_value: float = 0.0
     total_value: float = 0.0
+    total_paid: float = 0.0
 
     artwork_file: Optional[str] = None
     template_file: Optional[str] = None

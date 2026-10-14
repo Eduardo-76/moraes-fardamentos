@@ -14,6 +14,7 @@ from app.models.print_job_model import (
     PrintGradeItemModel,
 )
 from app.services.audio_service import AudioService
+from app.services.payment_service import PaymentService
 
 
 
@@ -634,6 +635,7 @@ class OrderService:
 
             unit_value=order.unit_value or 0,
             total_value=order.total_value or 0,
+            total_paid=PaymentService().get_total_paid(order_id),
 
             observations=order.notes,
 
