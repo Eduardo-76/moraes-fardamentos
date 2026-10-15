@@ -643,6 +643,7 @@ class OrdersScreen(ctk.CTkFrame):
                 size=20,
                 weight="bold",
             ),
+            text_color="#111827" if entregue else "#F9FAFB",
         )
 
         title.grid(
@@ -679,6 +680,7 @@ class OrdersScreen(ctk.CTkFrame):
             ),
             justify="left",
             font=ctk.CTkFont(size=14),
+            text_color="#111827" if entregue else "#F9FAFB",
         )
 
         details.grid(
