@@ -324,6 +324,17 @@ class StockScreen(ctk.CTkFrame):
         StockMovementHistoryDialog(self, stock_id=stock_id)
 
     def _delete_item(self, stock_id: int) -> None:
+        from tkinter import messagebox
+
+        confirm = messagebox.askyesno(
+            "Confirmar exclusão",
+            "Tem certeza de que deseja excluir este item do estoque?\n\n"
+            "Essa ação não poderá ser desfeita."
+        )
+
+        if not confirm:
+            return
+
         self.stock_service.delete_stock_entry(stock_id)
         self.refresh_items()
 
